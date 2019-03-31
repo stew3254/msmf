@@ -14,7 +14,7 @@ func check(e error) {
 	}
 }
 
-/* 
+/*
 This function updates a vanilla 'server.jar' file in a directory.
 It first goes to the Minecraft website and then uses regular
 expressions to grab a link to the server download page.
@@ -30,7 +30,7 @@ func UpdateServer() {
 	newServer := "new_server.jar"
 	url := "https://www.minecraft.net/en-us/download/server/"
 
-  //GetURL comes from web.go
+	//GetURL comes from web.go
 	text, err := GetURL(url)
 	if err != nil {
 		fmt.Println("Couldn't find find", url)
@@ -47,11 +47,11 @@ func UpdateServer() {
 	//Extract the url
 	url = re.FindString(text)
 
-  //DownloadFile comes from web.go
+	//DownloadFile comes from web.go
 	err = DownloadFile(newServer, url)
 	check(err)
 
-  //CheckFile comes from fileio.go
+	//CheckFile comes from fileio.go
 	readByte, err := CheckFile(server)
 	check(err)
 
@@ -80,5 +80,5 @@ func UpdateServer() {
 }
 
 func main() {
-  UpdateServer()
+	UpdateServer()
 }
