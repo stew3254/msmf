@@ -167,6 +167,8 @@ func UpdateServer() {
 	newServer := "new_server.jar"
 	url := "https://www.minecraft.net/en-us/download/server/"
 
+	fmt.Println("Going to go get the " + server + " file")
+
 	//getURL comes from web.go
 	text, err := getURL(url)
 	if err != nil {
@@ -184,9 +186,11 @@ func UpdateServer() {
 	//Extract the url
 	url = re.FindString(text)
 
-	//downloadFile comes from web.go
+	fmt.Println("Got " + server + " file. Downloading now")
+
 	err = downloadFile(newServer, url)
 	check(err)
+	fmt.Println("Downloaded " + newServer)
 
 	//checkFile comes from fileio.go
 	readByte, err := checkFile(server)
@@ -211,9 +215,11 @@ func UpdateServer() {
 
 			timeStamp := date + "_" + currTime
 			os.Rename(server, timeStamp+"_"+server)
+			fmt.Println("Renamed old " + server)
 		}
 	}
 	os.Rename(newServer, server)
+	fmt.Println("Renamed " + newServer + " to " + server)
 }
 
 func main() {

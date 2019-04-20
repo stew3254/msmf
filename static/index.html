@@ -11,16 +11,13 @@
         <h1 id="Author">Minecraft Server Management Framework</h1>
         <nav>
           <ul>
-            <li class="hover"><a href="#derp">Place Holder</a></li>
+            <li class="hover"><a href="login">Login</a></li>
           </ul>
         </nav>
       </div>
       <h1 id="#derp">Place Holder</h1>
-      <button onclick="javascript:startSocket()">Send</button>
-      <textarea id="text">
-        Sample Text
-      </textarea>
-
+      <button onclick="javascript:ws.send(document.getElementById('text').value);">Send</button>
+      <textarea id="text">Sample Text</textarea>
   </body>
   <script src="js/web.js"></script>
 </html>
