@@ -6,18 +6,23 @@
     <title>Minecraft</title>
   </head>
   <body>
-    <div>
-      <div class="header">
-        <h1 id="Author">Minecraft Server Management Framework</h1>
-        <nav>
-          <ul>
-            <li class="hover"><a href="login">Login</a></li>
-          </ul>
-        </nav>
+    <div class="header">
+      <h1 id="author">Minecraft Server Management Framework</h1>
+      <nav>
+        <div class="hover"><a href="login">Login</a></div>
+        <div class="hover"><a href="register">Register</a></div>
+      </nav>
+    </div>
+    <div class="console">
+      <h1>Server Options</h1>
+      <div class="buttons">
+        <input type="button"/ value="Start">
+        <input type="button"/ value="Stop">
       </div>
-      <h1 id="#derp">Place Holder</h1>
-      <button onclick="javascript:ws.send(document.getElementById('text').value);">Send</button>
-      <textarea id="text">Sample Text</textarea>
+      <textarea disabled class= "server" id="text" cols="80" rows="20"></textarea>
+      <input class="server" id="input"/>
+      <input class="server" type="submit" value="Send Command"/>
+    </div>
   </body>
   <script src="js/web.js"></script>
 </html>

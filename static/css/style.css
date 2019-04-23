@@ -1,70 +1,44 @@
 body {
-  padding: 0;
-  margin: 0;
-  color: #232323;
-}
-.header {
-  padding-top: 20;
-  padding-bottom: 5;
-  background-color: #232323;
-  color: white;
-}
-nav {
-  height: 50px;
-}
-nav ul {
-  width: 600px;
-  height: 50px;
+  padding: 0 auto;
   margin: 0 auto;
-  /*overflow: hidden;*/
-}
-nav ul li {
-  list-style-type: none;
-  width: 150px;
-  float: left;
-  text-align: center;
-}
-li a {
-  text-decoration: none;
-  color: white;
-  line-height: 50px;
-  display: block;
 }
 
-.hover a:hover {
-  background-color: #505050;
+.header {
   color: white;
-}
-.divider {
-  padding: 0;
-  margin: 0;
-  /*border: 1px solid rgba(23, 23, 23, .2);*/
-  background: #505050;
-}
-.big {
-  height: 8;
-}
-.small {
-  height: 3;
-}
-.section {
-  color: white;
+  background-color: green;
   text-align: center;
-  padding-bottom: 0;
-  border: 1px solid rgba(23, 23, 23, 1);
-  background: #505050;
-  padding: 20;
-  margin: 20;
-}
-.subsection {
-  border: 2px solid rgba(23, 23, 23, 1);
-  border-radius: 10px;
-  margin: 10;
-  padding-left: 50;
-  padding-right: 50;
-}
-#author {
-  text-align: center;
-  margin: 0;
+  padding: 1vh;
 }
 
+.header a {
+  color: white;
+}
+
+.header h1 {
+  padding: 0 auto;
+  margin: 0 auto;
+}
+
+.hover {
+  display: inline-block;
+  margin-left: 2vw;
+  margin-right: 2vw;
+}
+
+.console {
+  margin-right: 25%;
+  margin-left: 25%;
+  text-align: center;
+}
+
+.server {
+  display: inline-block;
+}
+
+.buttons {
+  display: inline-block;
+}
+
+#input {
+  width: 100%;
+}

@@ -103,7 +103,3 @@ func StartServer() {
 	}
 	cmd.Wait()
 }
-
-func main() {
-	StartServer()
-}
