@@ -2,38 +2,85 @@ $text-color: #E0E0E0
 $text-shadow-color: #383838
 
 $button-texture: url("../img/button.png")
-    
+$button-shadow: inset .2rem .2rem 0 0 rgba(255,255,255,0.55), inset -.2rem -.3rem 0 0 rgba(0,0,0,0.55)
+	
 body
-    font-family: "minecraft"
-    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("../img/dirt.png")
+	font-family: "minecraft"
+	background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("../img/dirt.png")
 
 .container
-    margin: 3rem 10rem
-    grid-template-columns: repeat(2, 1fr)
+	margin: 3rem 10rem
+	grid-template-columns: repeat(2, 1fr)
+
+.btn, input[type=text], input[type=range]
+	color: $text-color
+	text-shadow: .2rem .2rem $text-shadow-color
+	text-decoration: none
+	display: inline-block
+	box-sizing: border-box
+	font-size: 2rem
+	padding: 1rem
+	width: 100%
+	margin-bottom: 1rem
+	border: none
+	outline: solid black .2rem
+	outline-offset: 0
+
+input[type="range"]
+	padding: 0
+	margin-right: 0
+	margin-left: 0
+	height: 4rem
+
+	@mixin track()
+		height: 100%
+		background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), $button-texture
+
+	@mixin thumb()
+		border: none
+		padding: 0
+		height: 100%
+		width: 1.25rem
+		background: $button-texture
+		box-shadow: $button-shadow
+		outline: solid black .2rem
+		outline-offset: 0
+	
+	&, &::-webkit-slider-thumb 
+		-webkit-appearance: none
+	&::-webkit-slider-runnable-track
+		@include track()
+	&::-moz-range-track
+		@include track()
+	&::-ms-track
+		@include track()
+	&::-webkit-slider-thumb
+		@include thumb()
+	&::-moz-range-thumb
+		@include thumb()
+	&::-ms-thumb
+		@include thumb()
+
+input[type=text]
+	background-color: black
+	outline-color: #a0a0a0
+	font-family: "minecraft"
 
 .btn
-    background: $button-texture
-    color: $text-color
-    text-shadow: .2rem .2rem $text-shadow-color
-    text-decoration: none
-    text-align: center
-    display: inline-block
-    outline: solid black .2rem
-    box-shadow: inset .2rem .2rem 0 0 rgba(255,255,255,0.55), inset -.2rem -.3rem 0 0 rgba(0,0,0,0.55)
-    font-size: 2rem
-    padding: 1rem
-    width: 100%
-    margin-bottom: 1rem
+	background: $button-texture
+	box-shadow: $button-shadow
+	text-align: center
 
-.btn:disabled, .btn.disabled
-    background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), $button-texture
-    box-shadow: none
+	&:disabled, &.disabled
+		background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), $button-texture
+		box-shadow: none
+		cursor: not-allowed
 
-.btn:hover:not(:disabled):not(.disabled)
-    background: linear-gradient(rgba(47, 51, 73, 0.4), rgba(47, 51, 73, 0.4)), $button-texture
+	&:hover:not(:disabled):not(.disabled)
+		background: linear-gradient(rgba(47, 51, 73, 0.4), rgba(47, 51, 73, 0.4)), $button-texture
 
 @font-face
-    font-family: "minecraft"
-    src: url("../font/minecraft-webfont.woff2") format("woff2"), url("../font/minecraft-webfont.woff") format("woff")
-    font-weight: normal
-    font-style: normal
+	font-family: "minecraft"
+	src: url("../font/minecraft-webfont.woff2") format("woff2"), url("../font/minecraft-webfont.woff") format("woff")
+	font-weight: normal
+	font-style: normal

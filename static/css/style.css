@@ -6,26 +6,79 @@ body {
   margin: 3rem 10rem;
   grid-template-columns: repeat(2, 1fr); }
 
-.btn {
-  background: url("../img/button.png");
+.btn, input[type=text], input[type=range] {
   color: #E0E0E0;
   text-shadow: 0.2rem 0.2rem #383838;
   text-decoration: none;
-  text-align: center;
   display: inline-block;
-  outline: solid black .2rem;
-  box-shadow: inset 0.2rem 0.2rem 0 0 rgba(255, 255, 255, 0.55), inset -0.2rem -0.3rem 0 0 rgba(0, 0, 0, 0.55);
+  box-sizing: border-box;
   font-size: 2rem;
   padding: 1rem;
   width: 100%;
-  margin-bottom: 1rem; }
+  margin-bottom: 1rem;
+  border: none;
+  outline: solid black .2rem;
+  outline-offset: 0; }
 
-.btn:disabled, .btn.disabled {
-  background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("../img/button.png");
-  box-shadow: none; }
+input[type="range"] {
+  padding: 0;
+  margin-right: 0;
+  margin-left: 0;
+  height: 4rem; }
+  input[type="range"], input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 100%;
+    background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("../img/button.png"); }
+  input[type="range"]::-moz-range-track {
+    height: 100%;
+    background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("../img/button.png"); }
+  input[type="range"]::-ms-track {
+    height: 100%;
+    background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("../img/button.png"); }
+  input[type="range"]::-webkit-slider-thumb {
+    border: none;
+    padding: 0;
+    height: 100%;
+    width: 1.25rem;
+    background: url("../img/button.png");
+    box-shadow: inset 0.2rem 0.2rem 0 0 rgba(255, 255, 255, 0.55), inset -0.2rem -0.3rem 0 0 rgba(0, 0, 0, 0.55);
+    outline: solid black .2rem;
+    outline-offset: 0; }
+  input[type="range"]::-moz-range-thumb {
+    border: none;
+    padding: 0;
+    height: 100%;
+    width: 1.25rem;
+    background: url("../img/button.png");
+    box-shadow: inset 0.2rem 0.2rem 0 0 rgba(255, 255, 255, 0.55), inset -0.2rem -0.3rem 0 0 rgba(0, 0, 0, 0.55);
+    outline: solid black .2rem;
+    outline-offset: 0; }
+  input[type="range"]::-ms-thumb {
+    border: none;
+    padding: 0;
+    height: 100%;
+    width: 1.25rem;
+    background: url("../img/button.png");
+    box-shadow: inset 0.2rem 0.2rem 0 0 rgba(255, 255, 255, 0.55), inset -0.2rem -0.3rem 0 0 rgba(0, 0, 0, 0.55);
+    outline: solid black .2rem;
+    outline-offset: 0; }
 
-.btn:hover:not(:disabled):not(.disabled) {
-  background: linear-gradient(rgba(47, 51, 73, 0.4), rgba(47, 51, 73, 0.4)), url("../img/button.png"); }
+input[type=text] {
+  background-color: black;
+  outline-color: #a0a0a0;
+  font-family: "minecraft"; }
+
+.btn {
+  background: url("../img/button.png");
+  box-shadow: inset 0.2rem 0.2rem 0 0 rgba(255, 255, 255, 0.55), inset -0.2rem -0.3rem 0 0 rgba(0, 0, 0, 0.55);
+  text-align: center; }
+  .btn:disabled, .btn.disabled {
+    background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url("../img/button.png");
+    box-shadow: none;
+    cursor: not-allowed; }
+  .btn:hover:not(:disabled):not(.disabled) {
+    background: linear-gradient(rgba(47, 51, 73, 0.4), rgba(47, 51, 73, 0.4)), url("../img/button.png"); }
 
 @font-face {
   font-family: "minecraft";
