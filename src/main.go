@@ -13,13 +13,6 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/postgres"
 )
 
-// Check if a value exists and fail if it doesn't
-func checkExists(exists bool, msg string) {
-	if !exists {
-		log.Fatal(msg)
-	}
-}
-
 var db *gorm.DB
 var err error
 
@@ -47,7 +40,7 @@ func main() {
   }
 
   // Handle static traffic
-  router.PathPrefix("/").Handler(http.FileServer(http.Dir("static")))
+  router.PathPrefix("/").Handler(http.FileServer(htmlStrippingFileSystem{http.Dir("static")}))
   
   // Create http server
   srv := &http.Server{
