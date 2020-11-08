@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/zip"
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -10,13 +9,6 @@ import (
 	"os"
 	"path/filepath"
 )
-
-//Panic if an error
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
 
 func zipFiles(filename string, files []string) error {
 
@@ -131,15 +123,15 @@ func Backup(path, world string) error {
 	return err
 }
 
-func main() {
-	reader := bufio.NewReader(os.Stdin)
-	scanner := bufio.NewScanner(reader)
-	scanner.Scan()
-	text := scanner.Text()
-	err := Backup(text, "world")
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		fmt.Println("Zipped!")
-	}
-}
+// func main() {
+// 	reader := bufio.NewReader(os.Stdin)
+// 	scanner := bufio.NewScanner(reader)
+// 	scanner.Scan()
+// 	text := scanner.Text()
+// 	err := Backup(text, "world")
+// 	if err != nil {
+// 		fmt.Println(err)
+// 	} else {
+// 		fmt.Println("Zipped!")
+// 	}
+// }

@@ -8,10 +8,12 @@ services:
     ports:
       - 5432:5432
   web:
-    build: .
-    container_name: msmf
+    build: Dockerfile.dev
+    container_name: msmf_dev
     env_file: .env
     ports: 
-      - 8080:80
+      - 8080:3000
     depends_on:
       - db
+    volumes: 
+      - ./src:/srv/website

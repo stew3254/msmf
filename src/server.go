@@ -6,13 +6,11 @@ import (
   "fmt"
   "encoding/base64"
   "github.com/gorilla/websocket"
-  //"github.com/mattn/go-sqlite3"
   "golang.org/x/crypto/bcrypt"
   "log"
   "io/ioutil"
   "os"
   "net/http"
-  _ "github.com/mattn/go-sqlite3"
 )
 
 var upgrader = websocket.Upgrader{
@@ -111,7 +109,7 @@ func create_db() {
   encoded_password, err := hash(password)
   if err != nil {
     fmt.Println(err)
-  }
+    d
 
   //Insert the account and encoded password
   statement.Exec("0", "Administrator", encoded_password)

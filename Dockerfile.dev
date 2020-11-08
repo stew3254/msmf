@@ -1,0 +1,8 @@
+FROM golang:latest
+# USER www-data
+WORKDIR /srv/website
+EXPOSE 3000
+RUN go get "github.com/codegangsta/gin"
+COPY go.mod go.sum ./
+RUN go mod download
+CMD gin -t src -b bin -a 5000 -i run main.go

@@ -222,6 +222,6 @@ func UpdateServer() {
 	fmt.Println("Renamed " + newServer + " to " + server)
 }
 
-func main() {
-	UpdateServer()
-}
+// func main() {
+// 	UpdateServer()
+// }
