@@ -1,0 +1,20 @@
+{
+  "name": "web",
+  "description": "msmf frontend",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "parcel build src/*.html",
+    "start": "parcel src/*.pug"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.10.5",
+    "@babel/preset-env": "^7.10.4",
+    "@types/jquery": "^3.5.0",
+    "cssnano": "^4.1.10",
+    "parcel-bundler": "^1.12.4",
+    "pug": "^3.0.0",
+    "sass": "^1.26.10",
+    "typescript": "^3.9.7"
+  },
+  "private": true
+}
