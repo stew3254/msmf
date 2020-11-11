@@ -1,0 +1,21 @@
+doctype html
+head
+  meta(name='viewport' content='width=device-width, initial-scale=1')
+  title Register
+div
+  .header
+    h1 Register
+    form(action='/register' method='post')
+      | Username:
+      br
+      input(type='text' name='username')
+      br
+      | Password:
+      br
+      input(type='password' name='password')
+      br
+      | Confirm Password:
+      br
+      input(type='password' name='confirm')
+      br
+      input(type='submit' value='Register')

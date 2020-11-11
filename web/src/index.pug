@@ -1,0 +1,21 @@
+doctype html
+head
+    meta(name='viewport' content='width=device-width, initial-scale=1')
+    link(rel='stylesheet' type='text/css' href='css/style.sass')
+    title Minecraft
+.header
+    h1#author Minecraft Server Management Framework
+    nav
+        .hover
+            a(href='login.pug') Login
+        .hover
+            a(href='register.pug') Register
+.console
+    h1 Server Options
+    .buttons
+        input(type='button' value='Start')
+        input(type='button' value='Stop')
+    textarea#text.server(disabled='' cols='80' rows='20')
+    input#input.server
+    input.server(type='submit' value='Send Command')
+script(src='js/web.ts')
