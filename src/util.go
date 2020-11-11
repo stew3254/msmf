@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -53,8 +52,6 @@ func (fs htmlStrippingFileSystem) Open(name string) (http.File, error) {
 			}
 		}
 	}
-
-	fmt.Println(name)
 
 	file, err := fs.FileSystem.Open(name)
 	if err != nil {
