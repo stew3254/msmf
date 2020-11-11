@@ -1,42 +1,20 @@
 package main
 
 import (
-  "encoding/base64"
-  "golang.org/x/crypto/bcrypt"
-	"log"
 	"net/http"
 	"strings"
 )
 
-// Checks if a value exists and fail if it doesn't
-func checkExists(exists bool, msg string) {
-	if !exists {
-		log.Fatal(msg)
-	}
-}
-
-//Takes a password and returns the base64 encoded hash
-func hash(password string) (string, error) {
-  //Default cost of hash
-  cost := 10
-  passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), cost)
-  if err != nil {
-    return "", nil
-  }
-  encoded := base64.StdEncoding.EncodeToString([]byte(passwordHash))
-  return encoded, nil
-}
-
-// HTMLHidingFileSystem is an http.FileSystem that "hides" the .html on files
-type htmlStrippingFileSystem struct {
+// HTMLStrippingFileSystem is an http.FileSystem that "hides" the .html on files
+type HTMLStrippingFileSystem struct {
 	http.FileSystem
 }
 
-// UNAVOIDABLE BUG: When going to a directory index.html,
-// the url will not have a trailing slash
 // Open is a wrapper around the Open method of the embedded FileSystem
 // This allows us to take urls without a file extension and open them as a .html
-func (fs htmlStrippingFileSystem) Open(name string) (http.File, error) {
+// UNAVOIDABLE BUG: When going to a directory index.html,
+// the url will not have a trailing slash
+func (fs HTMLStrippingFileSystem) Open(name string) (http.File, error) {
 
 	// Directory doesn't exist, now checking 
 	if len(strings.Split(name, ".")) == 1 {
@@ -68,6 +46,9 @@ func (fs htmlStrippingFileSystem) Open(name string) (http.File, error) {
 
 	file, err := fs.FileSystem.Open(name)
 	if err != nil {
+		// if strings.Contains(err.Error(), "no such file or directory") {
+		// 	fs.FileSystem.Open()
+		// }
 		return nil, err
 	}
 	return file, err

@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"bufio"
@@ -122,13 +122,12 @@ func getURL(url string) (string, error) {
 	}
 
 	//Read all of the data
-	byte_str, err := ioutil.ReadAll(res.Body)
-	text := string(byte_str)
+	byteStr, err := ioutil.ReadAll(res.Body)
+	text := string(byteStr)
 	if err != nil {
 		return text, err
-	} else {
-		return text, nil
 	}
+	return text, nil
 }
 
 func downloadFile(filepath, url string) error {
@@ -152,7 +151,7 @@ func downloadFile(filepath, url string) error {
 }
 
 /*
-This function updates a vanilla 'server.jar' file in a directory.
+UpdateServer updates a vanilla 'server.jar' file in a directory.
 It first goes to the Minecraft website and then uses regular
 expressions to grab a link to the server download page.
 It then downloads the file, and if a 'server.jar' doesn't exist,

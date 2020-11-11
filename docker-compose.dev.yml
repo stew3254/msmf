@@ -19,7 +19,6 @@ services:
       - db
     volumes:
       - ./src:/srv/website/src
-      - ./bin:/srv/website/bin
       - static:/srv/website/static
   pgadmin:
     image: "dpage/pgadmin4"

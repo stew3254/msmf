@@ -9,6 +9,7 @@ import (
   "time"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"msmf/utils"
   
 	"gorm.io/driver/postgres"
 )
@@ -18,17 +19,17 @@ func connectDB(dbType string) (*gorm.DB, error) {
 	dbTypeUpper := strings.ToUpper(dbType)
 
 	user, exists := os.LookupEnv(dbTypeUpper+"_USER")
-	checkExists(exists, "Couldn't find database user")
+	utils.CheckExists(exists, "Couldn't find database user")
 	password, exists := os.LookupEnv(dbTypeUpper+"_PASSWORD")
-	checkExists(exists, "Couldn't find database password")
+	utils.CheckExists(exists, "Couldn't find database password")
 
 	// Get database params
 	dbServer, exists := os.LookupEnv(dbTypeUpper+"_SERVER")
-	checkExists(exists, "Couldn't find database server")
+	utils.CheckExists(exists, "Couldn't find database server")
 	dbPort, exists := os.LookupEnv(dbTypeUpper+"_PORT")
-	checkExists(exists, "Couldn't find database port")
+	utils.CheckExists(exists, "Couldn't find database port")
 	dbName, exists := os.LookupEnv(dbTypeUpper+"_DB")
-	checkExists(exists, "Couldn't find database name")
+	utils.CheckExists(exists, "Couldn't find database name")
 	connectionString := fmt.Sprintf(
 		"sslmode=disable host=%s port=%s dbname=%s user=%s password=%s",
 		dbServer,
@@ -107,6 +108,10 @@ func createPerms(db *gorm.DB) {
 		{
 			Name: "create_user",
 			Description: "Enables the ability to add more users to the web portal",
+		},
+		{
+			Name: "delete_user",
+			Description: "Enables the ability to delete users from the web portal",
 		},
 	}
 

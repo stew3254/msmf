@@ -107,9 +107,9 @@ type ServerLog struct {
 	ID *int `gorm:"primaryKey; type:serial"`
 	Time time.Time `gorm:"not null"`
 	Command string `gorm:"type: text not null"`
-	PlayerID *int `gorm:"not null"`
+	PlayerID *int
 	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
-	ServerID *int `gorm:"not null"`
+	ServerID *int
 	Server Server `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
 }
 
@@ -117,9 +117,9 @@ type ServerLog struct {
 type PlayerLog struct {
 	Time time.Time `gorm:"primaryKey; type:serial"`
 	Action string `gorm:"type: text not null"`
-	PlayerID *int `gorm:"not null"`
+	PlayerID *int
 	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
-	ServerID *int `gorm:"not null"`
+	ServerID *int
 	Server Server `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
 }
 
@@ -134,5 +134,5 @@ type WebLog struct {
 	PostData string `gorm:"type:json"`
 	Cookies string `gorm:"type:json"`
 	UserID *int
-	User User `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
+	User User `gorm:"foreignKey:ID;constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
 }

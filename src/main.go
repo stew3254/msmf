@@ -10,8 +10,6 @@ import (
 	"github.com/gorilla/mux"
   "github.com/gorilla/websocket"
 	"gorm.io/gorm"
-
-	_ "gorm.io/driver/postgres"
 )
 
 var db *gorm.DB
@@ -25,11 +23,12 @@ var upgrader = websocket.Upgrader{
 //This is used to register a user
 func register(w http.ResponseWriter, r *http.Request) {
   defer r.Body.Close()
-  r.ParseForm()
 
-  // username := r.Form.Get("username")
-  // passwd := r.Form.Get("password")
-  // confirmPasswd := r.Form.Get("confirm_password")
+  username := r.FormValue("username")
+  passwd := r.FormValue("password")
+  confirmPasswd := r.FormValue("confirm_password")
+
+  log.Println(username, passwd, confirmPasswd)
 
   //Make sure the login page gets served correctly
   http.ServeFile(w, r, "static/register.html")
@@ -86,7 +85,7 @@ func main() {
   } 
 
   // Used for debug purposes
-  // dropTables(db)
+  dropTables(db)
   
   // Create all of the tables with constraints
   createTables(db)
@@ -104,14 +103,18 @@ func main() {
   }
 
   // Handlers
+  router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    w.Write([]byte("Oof, bad place"))
+  })
+
   router.HandleFunc("/login", login).Methods("POST")
   router.HandleFunc("/register", register).Methods("POST")
   router.HandleFunc("/ws", wsHandler)
 
   // Handle static traffic
-  router.PathPrefix("/").Handler(http.FileServer(htmlStrippingFileSystem{http.Dir("static")})).Methods("GET")
+  router.PathPrefix("/").Handler(http.FileServer(HTMLStrippingFileSystem{http.Dir("static")})).Methods("GET")
 
-  router.Use(logRequest)
+  router.Use(printPath)
 
   // Create http server
   srv := &http.Server{

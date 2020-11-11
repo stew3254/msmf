@@ -1,0 +1,24 @@
+apps:
+  portal:
+    credentials:
+      username: admin
+      password: password
+
+    listen: "0.0.0.0"
+    port: 5000
+
+  db:
+    credentials:
+      username: msmf
+      password: asdklgbj@$GG4212gG@$%GDF
+    
+    host: msmf_db
+    port: 5432
+
+  pgadmin:
+    credentials:
+      username: default@email.com
+      password: default
+    
+    host: msmf_db
+    port: 5432
