@@ -1,0 +1,10 @@
+FROM node:alpine
+
+WORKDIR /app
+
+RUN npm add -g pnpm
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install
+
+ENTRYPOINT ["pnpm", "run", "watch"]
