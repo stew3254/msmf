@@ -1,4 +1,4 @@
-module msmf
+module github/stew3254/msmf
 
 go 1.15
 

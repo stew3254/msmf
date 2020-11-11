@@ -1,6 +1,8 @@
 package main
 
 import (
+  "encoding/base64"
+  "golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
 	"strings"
@@ -13,8 +15,19 @@ func checkExists(exists bool, msg string) {
 	}
 }
 
-// HTMLHidingFileSystem is an http.FileSystem that hides
-// hidden "dot files" from being served.
+//Takes a password and returns the base64 encoded hash
+func hash(password string) (string, error) {
+  //Default cost of hash
+  cost := 10
+  passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), cost)
+  if err != nil {
+    return "", nil
+  }
+  encoded := base64.StdEncoding.EncodeToString([]byte(passwordHash))
+  return encoded, nil
+}
+
+// HTMLHidingFileSystem is an http.FileSystem that "hides" the .html on files
 type htmlStrippingFileSystem struct {
 	http.FileSystem
 }

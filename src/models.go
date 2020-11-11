@@ -10,119 +10,133 @@ import (
 
 // Game Model
 type Game struct {
-	ID int `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	Name string `gorm:"type:varchar(64) not null unique"`
 }
 
 // Version Model
 type Version struct {
-	ID int `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	Tag string `gorm:"type:text not null"`
-	GameID int
+	GameID *int
 	Game Game
 }
 
 // Mod Model
 type Mod struct {
-	ID int `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	URL string `gorm:"type: text not null"`
 	Name string `gorm:"type: varchar(64) not null"`
-	GameID int `gorm:"not null"`
+	GameID *int `gorm:"not null"`
 	Game Game 
-	VersionID int
+	VersionID *int
 	Version Version 
 }
 
 // Server Model
 type Server struct {
-	ID int `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	Port int16 `gorm:"not null; unique; check: Port < 65536, Port > 0"`
-	GameID int `gorm:"not null"`
+	GameID *int `gorm:"not null"`
 	Game Game
-	VersionID int
+	VersionID *int
 	Version Version
 }
 
 // ServerPerm Model
 type ServerPerm struct {
-	ID int `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	Name string `gorm:"type: varchar(64) not null unique"`
 }
 
 // User Model. ReferredBy is self referencing Foreign Key
 type User struct {
-	ID int `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	Username string `gorm:"type: varchar(32) not null unique"`
 	Password string `gorm:"type: varchar(128) not null"`
-	ReferredBy int
+	ReferredBy *int
 	Referrer *User
 }
 
 // UserPerm Model
 type UserPerm struct {
-	ID int `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	Name string `gorm:"type: varchar(64) not null unique"`
 }
 
 // Player Model
 type Player struct {
-	ID int `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	Name string `gorm:"type: varchar(64) not null unique"`
 }
 
 // ModsPerServer Model. Foriegn Key table
 type ModsPerServer struct {
-	ModID int
-	ServerID int
+	ModID *int
+	Mod Mod
+	ServerID *int
+	Server Server
 }
 
 // PermsPerUser Model. Foriegn Key table
 type PermsPerUser struct {
-	UserID int
-	UserPermID int
+	UserID *int
+	User User
+	UserPermID *int
+	UserPerm UserPerm
 }
 
 // ServerPermsPerUser Model. Foriegn Key table
 type ServerPermsPerUser struct {
-	ServerID int
-	ServerPermID int
-	UserID int
+	ServerID *int
+	Server Server
+	ServerPermID *int
+	ServerPerm ServerPerm
+	UserID *int
+	User User
 }
 
 // UserPlayer Model. Foriegn Key table
 type UserPlayer struct {
-	UserID int
-	PlayerID int
+	UserID *int
+	User User
+	PlayerID *int
+	Player Player
 }
 
 // ServerLog Model
 type ServerLog struct {
-	ID int `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	Time time.Time `gorm:"not null"`
 	Command string `gorm:"type: text not null"`
-	PlayerID int `gorm:"not null"`
-	ServerID int `gorm:"not null"`
+	PlayerID *int `gorm:"not null"`
+	Player Player
+	ServerID *int `gorm:"not null"`
+	Server Server
 }
 
 // PlayerLog Model
 type PlayerLog struct {
 	Time time.Time `gorm:"primaryKey; type:serial"`
 	Action string `gorm:"type: text not null"`
-	PlayerID int `gorm:"not null"`
-	ServerID int `gorm:"not null"`
+	PlayerID *int `gorm:"not null"`
+	Player Player
+	ServerID *int `gorm:"not null"`
+	Server Server
 }
 
 // WebLog Model
 type WebLog struct {
-	ID int `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	Time time.Time `gorm:"not null"`
-	IP string `gorm:"varchar(128) not null"`
-	Method string `gorm:"type text not null"`
+	IP string `gorm:"type: varchar(128) not null"`
+	Method string `gorm:"type: text not null"`
 	StatusCode int `gorm:"not null"`
 	QueryParams string `gorm:"type:json"`
 	PostData string `gorm:"type:json"`
 	Cookies string `gorm:"type:json"`
-	UserID int
+	UserID *int
+	User User
 }
 
 func createTables(db *gorm.DB) {
@@ -180,7 +194,7 @@ func createTables(db *gorm.DB) {
 	db.Model(&PlayerLog{}).AddForeignKey("player_id", "players(id)", "CASCADE", "CASCADE")
 	db.Model(&PlayerLog{}).AddForeignKey("server_id", "servers(id)", "CASCADE", "CASCADE")
 
-	db.Model(&WebLog{}).AddForeignKey("user_id", "users(id)", "SET NULL", "SET NULL")
+	db.Model(&WebLog{}).AddForeignKey("user_id", "users(id)", "SET NULL", "CASCADE")
 }
 
 func dropTables(db *gorm.DB) {
