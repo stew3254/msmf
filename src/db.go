@@ -7,9 +7,10 @@ import (
   "strings"
   "strconv"
   "time"
-  "github.com/jinzhu/gorm"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
   
-  _ "github.com/jinzhu/gorm/dialects/postgres"
+	"gorm.io/driver/postgres"
 )
 
 func connectDB(dbType string) (*gorm.DB, error) {
@@ -58,7 +59,7 @@ func connectDB(dbType string) (*gorm.DB, error) {
 	}
 
 	for i := 1; i <= attempts; i++ {
-		db, err = gorm.Open(dbType, connectionString)
+		db, err = gorm.Open(postgres.Open(connectionString), &gorm.Config{})
 		if err != nil {
 			if i != attempts {
 				log.Printf(
@@ -77,4 +78,127 @@ func connectDB(dbType string) (*gorm.DB, error) {
 	}
 	log.Println("Connection to db succeeded!")
 	return db, nil
+}
+
+// Create all server perms
+func createPerms(db *gorm.DB) {
+	// User Permissions
+	userPerms := []UserPerm{
+		{
+			Name: "administrator",
+			Description: "Enables full control over all user permissions",
+		},
+		{
+			Name: "create_server",
+			Description: "Enables creation of servers and the deletion of your own servers",
+		},
+		{
+			Name: "delete_server",
+			Description: "Enables deletion of all servers regardless of server owner",
+		},
+		{
+			Name: "manage_user_permission",
+			Description: "Allows management of other users's permissions. You cannot add permissions to others that you do not have already",
+		},
+		{
+			Name: "manage_server_permission",
+			Description: "Enables the ability to modify all server permissions for all servers and users. Note, you cannot remove permissions from people who own servers",
+		},
+		{
+			Name: "create_user",
+			Description: "Enables the ability to add more users to the web portal",
+		},
+	}
+
+	// Server Permissions
+	serverPerms := []ServerPerm{
+		{
+			Name: "administrator",
+			Description: "Enables full control over all server permissions for a server",
+		},
+		{
+			Name: "restart",
+			Description: "Enables stopping and starting of the server",
+		},
+		{
+			Name: "edit_configuration",
+			Description: "Enables changing the port amoung other features",
+		},
+		{
+			Name: "manage_mods",
+			Description: "Enables adding and removing mods from the server",
+		},
+		{
+			Name: "kick",
+			Description: "Allows kicking of players from a server",
+		},
+		{
+			Name: "ban",
+			Description: "Allows banning of players from a server",
+		},
+		{
+			Name: "view_logs",
+			Description: "Enables viewing of server logs, but not being able to send commands",
+		},
+		{
+			Name: "manage_server_console",
+			Description: "Enables attaching to the server console directly in order to run commands. Note, this will make you a server operator as well on games that have support for that",
+		},
+	}
+
+	// Upsert into table permissions
+	db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "name"}},
+		DoUpdates: clause.AssignmentColumns([]string{"name", "description"}),
+	}).Create(&userPerms)
+
+	db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "name"}},
+		DoUpdates: clause.AssignmentColumns([]string{"name", "description"}),
+	}).Create(&serverPerms)
+}
+
+// Creates all tables
+func createTables(db *gorm.DB) {
+	// Create all regular tables
+	db.AutoMigrate(
+		&Game{},
+		&Version{},
+		&Mod{},
+		&Server{},
+		&ServerPerm{},
+		&User{},
+		&UserPerm{},
+		&Player{},
+		&ModsPerServer{},
+		&PermsPerUser{},
+		&ServerPermsPerUser{},
+		&UserPlayer{},
+		&ServerLog{},
+		&PlayerLog{},
+		&WebLog{},
+	)
+
+	// Create base permissions
+	createPerms(db)
+}
+
+// Drop all tables
+func dropTables(db *gorm.DB) {
+	// Drop tables in an order that won't invoke errors from foreign key constraints
+	db.Migrator().DropTable(&ModsPerServer{})
+	db.Migrator().DropTable(&PermsPerUser{})
+	db.Migrator().DropTable(&ServerPermsPerUser{})
+	db.Migrator().DropTable(&UserPlayer{})
+	db.Migrator().DropTable(&ServerLog{})
+	db.Migrator().DropTable(&PlayerLog{})
+	db.Migrator().DropTable(&WebLog{})
+	db.Migrator().DropTable(&ServerPerm{})
+	db.Migrator().DropTable(&Server{})
+	db.Migrator().DropTable(&UserPerm{})
+	db.Migrator().DropTable(&User{})
+	db.Migrator().DropTable(&Player{})
+	db.Migrator().DropTable(&Mod{})
+	db.Migrator().DropTable(&Version{})
+	db.Migrator().DropTable(&Game{})
 }

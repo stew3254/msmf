@@ -9,9 +9,9 @@ import (
 
 	"github.com/gorilla/mux"
   "github.com/gorilla/websocket"
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
 
-	_ "github.com/jinzhu/gorm/dialects/postgres"
+	_ "gorm.io/driver/postgres"
 )
 
 var db *gorm.DB
@@ -84,10 +84,9 @@ func main() {
   if err != nil { 
     panic("failed to connect database") 
   } 
-  defer db.Close() 
 
   // Used for debug purposes
-  dropTables(db)
+  // dropTables(db)
   
   // Create all of the tables with constraints
   createTables(db)
