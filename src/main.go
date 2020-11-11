@@ -27,6 +27,12 @@ func main() {
   } 
   defer db.Close() 
 
+  // Used for debug purposes
+  // dropTables(db)
+  
+  // Create all of the tables with constraints
+  createTables(db)
+
   // Set up server listen address
   listenAddr, exists := os.LookupEnv("LISTEN")
   if !exists {
@@ -51,5 +57,6 @@ func main() {
   }
     
   // Start server
+  log.Println("Starting server")
   log.Fatal(srv.ListenAndServe())
 }

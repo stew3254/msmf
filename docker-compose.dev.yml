@@ -21,3 +21,11 @@ services:
       - ./src:/srv/website/src
       - ./bin:/srv/website/bin
       - ./static:/srv/website/static
+  pgadmin:
+    image: "dpage/pgadmin4"
+    container_name: "msmf_pgadmin"
+    env_file: .env
+    ports:
+      - "5050:80"
+    depends_on:
+      - db

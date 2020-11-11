@@ -27,6 +27,7 @@ FROM alpine:latest
 
 WORKDIR /opt/msmf
 COPY --from=go-build /go/src/ ./
+COPY ./static ./static
 # COPY --from=node-build /node/dist/ /static
 
 EXPOSE 80
