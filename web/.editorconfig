@@ -1,0 +1,4 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+[*]
+insert_final_newline = true
