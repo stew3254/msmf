@@ -1,0 +1,11 @@
+// https://parceljs.org/typeScript.html#baseurl-and-paths
+{
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "paths": {
+      "~*": ["./*"]
+    },
+    "jsx": "react"
+  },
+  "include": ["src/**/*"]
+}
