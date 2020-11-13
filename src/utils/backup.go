@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"archive/zip"
@@ -87,7 +87,7 @@ func walk(basePath string, walkedFiles *[]string) error {
 }
 
 /*
-Backs up a Minecraft world. Takes a path to the
+Backup a Minecraft world. Takes a path to the
 server folder as an argument.
 */
 func Backup(path, world string) error {

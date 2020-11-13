@@ -19,9 +19,7 @@ services:
       - db
     volumes:
       - ./src:/srv/website/src
-      - ./bin:/srv/website/bin
       - static:/srv/website/static
-
   pgadmin:
     image: "dpage/pgadmin4"
     container_name: "msmf_pgadmin"
@@ -30,8 +28,8 @@ services:
       - "5050:80"
     depends_on:
       - db
-
   parcel:
+    container_name: msmf_parcel
     build:
       context: web
       dockerfile: Dockerfile.dev
