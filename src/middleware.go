@@ -57,7 +57,7 @@ func logRequest(next http.Handler) http.Handler {
 
 // Good enough for now to check which routes will accept unauthenticated requests
 func checkvalidUnauthenticatedRoutes(url string) bool {
-	return (!strings.HasSuffix(url, ".css") && !strings.HasSuffix(url, ".js") && url != "/" && url != "/login")
+	return (!strings.HasSuffix(url, ".css") && !strings.HasSuffix(url, ".js") && !strings.HasSuffix(url, ".map") && url != "/" && url != "/login")
 }
 
 // Checks to see if a user is authenticated to a page before displaying
@@ -68,7 +68,8 @@ func checkAuthenticated(next http.Handler) http.Handler {
 			tokenCookie, err:= r.Cookie("token")
 			// Cookie not found
 			if err != nil {
-				http.Redirect(w, r, "/login", http.StatusFound)
+				// http.Redirect(w, r, "/login", http.StatusFound)
+				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
 
@@ -76,7 +77,8 @@ func checkAuthenticated(next http.Handler) http.Handler {
 			user := database.User{}
 			result :=  database.DB.Where("token = ?", tokenCookie.Value).First(&user)
 			if result.Error != nil || time.Now().After(user.TokenExpiration) {
-				http.Redirect(w, r, "/login", http.StatusFound)
+				// http.Redirect(w, r, "/login", http.StatusFound)
+				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
 

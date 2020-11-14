@@ -168,7 +168,7 @@ func CreatePerms() {
 	}).Create(&serverPerms)
 }
 
-// Creates a default admin account
+// MakeAdmin upserts the default admin account
 func MakeAdmin() {
 	passwd, exists := os.LookupEnv("ADMIN_PASSWORD")
 	if !exists {
@@ -180,16 +180,33 @@ func MakeAdmin() {
 	}
 
 	// Upsert into table permissions
+	admin := User{
+		Username: "admin",
+		Password: hash,
+	}
 	DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "username"}},
 		DoUpdates: clause.AssignmentColumns([]string{"password"}),
-	}).Create(&User{
-		Username: "admin",
-		Password: hash,
+	}).Create(&admin)
+
+	// Get admin permission
+	userPerm := UserPerm{}
+	result := DB.Where("name = 'administrator'").First(&userPerm)
+	if result.Error != nil {
+		log.Fatal(err)
+	}
+
+	// Actually add admin perms to admin user
+	DB.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "user_id"}, {Name: "user_perm_id"}},
+		DoNothing: true,
+	}).Create(PermsPerUser{
+		UserID: admin.ID,
+		UserPermID: userPerm.ID,
 	})
 }
 
-// Creates all tables
+// CreateTables sets up the db
 func CreateTables() {
 	// Create all regular tables
 	DB.AutoMigrate(
@@ -214,7 +231,7 @@ func CreateTables() {
 	CreatePerms()
 }
 
-// Drop all tables
+// DropTables drops everything in the db
 func DropTables() {
 	// Drop tables in an order that won't invoke errors from foreign key constraints
 	DB.Migrator().DropTable(&ModsPerServer{})
