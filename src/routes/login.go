@@ -2,8 +2,8 @@ package routes
 
 import (
 	"net/http"
+
 	"golang.org/x/crypto/bcrypt"
-	"encoding/json"
 
 	"msmf/database"
 	"msmf/utils"
@@ -19,12 +19,10 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	user := database.User{}
 
 	// Create a response to send back to the user
-	resp := make(map[string]interface{})
 	result := database.DB.Where("username = ?", username).First(&user)
 	if result.Error != nil {
-		resp["error"] = "Authentication failed"
-		json, _ := json.Marshal(resp)
-		w.Write(json)
+		w.WriteHeader(http.StatusForbidden)
+		http.ServeFile(w, r, "static/login.html")
 		return
 	}
 
@@ -33,12 +31,17 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		user.Token, user.TokenExpiration = utils.GenerateToken()
 		database.DB.Save(&user)
 
-		// Send response back to client
-		resp["token"] = user.Token
-		resp["expiration"] = user.TokenExpiration
-	} else {
-		resp["error"] = "Authentication failed"
+		http.SetCookie(w, &http.Cookie{
+			Name: "token",
+			Value: user.Token,
+			Expires: user.TokenExpiration,
+			Secure: true,
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+		})
+		http.Redirect(w, r, "/auth", http.StatusFound)
+		return
 	}
-	json, _ := json.Marshal(resp)
-	w.Write(json)
+	w.WriteHeader(http.StatusForbidden)
+	http.ServeFile(w, r, "static/login.html")
 }

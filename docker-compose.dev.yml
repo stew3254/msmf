@@ -18,8 +18,8 @@ services:
     depends_on:
       - db
     volumes:
-      - ./src:/srv/website/src
-      - ./certs:/srv/website/certs
+      - ./src:/srv/website/src:ro
+      - ./certs:/srv/website/certs:ro
       - static:/srv/website/static
   pgadmin:
     image: "dpage/pgadmin4"

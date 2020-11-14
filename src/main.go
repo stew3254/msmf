@@ -50,16 +50,19 @@ func main() {
   router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
     w.Write([]byte("Oof, bad place"))
   })
+  router.HandleFunc("/login", routes.Login).Methods("POST")
 
   api := router.PathPrefix("/api").Subrouter()
-
-  api.HandleFunc("/login", routes.Login).Methods("POST")
   api.HandleFunc("/ws", routes.WSHandler)
 
   // Handle static traffic
   router.PathPrefix("/").Handler(http.FileServer(HTMLStrippingFileSystem{http.Dir("static")})).Methods("GET")
 
+  // Add printing path to screen per route
   router.Use(printPath)
+
+  // See if a user is authenticated to a page before displaying
+  router.Use(checkAuthenticated)
 
   // Set up server listen address
   listenAddr, exists := os.LookupEnv("LISTEN")

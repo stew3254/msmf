@@ -107,7 +107,7 @@ func (fs HTMLStrippingFileSystem) Open(name string) (http.File, error) {
 		}
 	}
 
-	file, err := fs.FileSystem.Open(name)
+	file, err := fs.FileSystem.Open(name[1:])
 	if err != nil {
 		return nil, err
 	}
