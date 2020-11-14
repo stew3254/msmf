@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
 	"time"
@@ -50,9 +50,11 @@ type ServerPerm struct {
 type User struct {
 	ID *int `gorm:"primaryKey; type:serial"`
 	Username string `gorm:"type: varchar(32) not null unique"`
-	Password string `gorm:"type: varchar(128) not null"`
+	Password []byte `gorm:"type: bytea not null"`
+	Token string `gorm: type varchar(64)`
+	TokenExpiration time.Time
 	ReferredBy *int
-	Referrer *User `gorm:"foreignKey:ReferredBy;constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
+	// Referrer *User `gorm:"foreignKey:ReferredBy;constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
 }
 
 // UserPerm Model
@@ -105,7 +107,7 @@ type UserPlayer struct {
 // ServerLog Model
 type ServerLog struct {
 	ID *int `gorm:"primaryKey; type:serial"`
-	Time time.Time `gorm:"not null"`
+	Time time.Time `gorm:"type: timestamp not null"`
 	Command string `gorm:"type: text not null"`
 	PlayerID *int
 	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
@@ -115,7 +117,8 @@ type ServerLog struct {
 
 // PlayerLog Model
 type PlayerLog struct {
-	Time time.Time `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type: serial"`
+	Time time.Time `gorm:"type: timestamp not null"`
 	Action string `gorm:"type: text not null"`
 	PlayerID *int
 	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
@@ -126,7 +129,7 @@ type PlayerLog struct {
 // WebLog Model
 type WebLog struct {
 	ID *int `gorm:"primaryKey; type:serial"`
-	Time time.Time `gorm:"not null"`
+	Time time.Time `gorm:"type: timestamp not null"`
 	IP string `gorm:"type: varchar(128) not null"`
 	Method string `gorm:"type: text not null"`
 	StatusCode int `gorm:"not null"`

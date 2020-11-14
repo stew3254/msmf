@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
   "fmt"
@@ -9,12 +9,17 @@ import (
   "time"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"msmf/utils"
-  
 	"gorm.io/driver/postgres"
+  "golang.org/x/crypto/bcrypt"
+
+	"msmf/utils"
 )
 
-func connectDB(dbType string) (*gorm.DB, error) {
+// DB is a global db connection to be shared
+var DB *gorm.DB
+
+//ConnectDB sets up the initial connection to the database along with retrying attempts
+func ConnectDB(dbType string) error {
 	// Get user credentials
 	dbTypeUpper := strings.ToUpper(dbType)
 
@@ -60,7 +65,7 @@ func connectDB(dbType string) (*gorm.DB, error) {
 	}
 
 	for i := 1; i <= attempts; i++ {
-		db, err = gorm.Open(postgres.Open(connectionString), &gorm.Config{})
+		DB, err = gorm.Open(postgres.Open(connectionString), &gorm.Config{})
 		if err != nil {
 			if i != attempts {
 				log.Printf(
@@ -69,7 +74,7 @@ func connectDB(dbType string) (*gorm.DB, error) {
 					timeout,
 				)
 			} else {
-				return db, fmt.Errorf("could not connect to db after %d attempts", attempts)
+				return fmt.Errorf("could not connect to db after %d attempts", attempts)
 			}
 			time.Sleep(time.Duration(timeout) * time.Second)
 		} else {
@@ -78,11 +83,11 @@ func connectDB(dbType string) (*gorm.DB, error) {
 		}
 	}
 	log.Println("Connection to db succeeded!")
-	return db, nil
+	return nil
 }
 
-// Create all server perms
-func createPerms(db *gorm.DB) {
+// CreatePerms creates all server perms
+func CreatePerms() {
 	// User Permissions
 	userPerms := []UserPerm{
 		{
@@ -152,21 +157,42 @@ func createPerms(db *gorm.DB) {
 	}
 
 	// Upsert into table permissions
-	db.Clauses(clause.OnConflict{
+	DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "name"}},
 		DoUpdates: clause.AssignmentColumns([]string{"name", "description"}),
 	}).Create(&userPerms)
 
-	db.Clauses(clause.OnConflict{
+	DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "name"}},
 		DoUpdates: clause.AssignmentColumns([]string{"name", "description"}),
 	}).Create(&serverPerms)
 }
 
+// Creates a default admin account
+func MakeAdmin() {
+	passwd, exists := os.LookupEnv("ADMIN_PASSWORD")
+	if !exists {
+		log.Fatal("You must set an admin password")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Upsert into table permissions
+	DB.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "username"}},
+		DoUpdates: clause.AssignmentColumns([]string{"password"}),
+	}).Create(&User{
+		Username: "admin",
+		Password: hash,
+	})
+}
+
 // Creates all tables
-func createTables(db *gorm.DB) {
+func CreateTables() {
 	// Create all regular tables
-	db.AutoMigrate(
+	DB.AutoMigrate(
 		&Game{},
 		&Version{},
 		&Mod{},
@@ -185,25 +211,25 @@ func createTables(db *gorm.DB) {
 	)
 
 	// Create base permissions
-	createPerms(db)
+	CreatePerms()
 }
 
 // Drop all tables
-func dropTables(db *gorm.DB) {
+func DropTables() {
 	// Drop tables in an order that won't invoke errors from foreign key constraints
-	db.Migrator().DropTable(&ModsPerServer{})
-	db.Migrator().DropTable(&PermsPerUser{})
-	db.Migrator().DropTable(&ServerPermsPerUser{})
-	db.Migrator().DropTable(&UserPlayer{})
-	db.Migrator().DropTable(&ServerLog{})
-	db.Migrator().DropTable(&PlayerLog{})
-	db.Migrator().DropTable(&WebLog{})
-	db.Migrator().DropTable(&ServerPerm{})
-	db.Migrator().DropTable(&Server{})
-	db.Migrator().DropTable(&UserPerm{})
-	db.Migrator().DropTable(&User{})
-	db.Migrator().DropTable(&Player{})
-	db.Migrator().DropTable(&Mod{})
-	db.Migrator().DropTable(&Version{})
-	db.Migrator().DropTable(&Game{})
+	DB.Migrator().DropTable(&ModsPerServer{})
+	DB.Migrator().DropTable(&PermsPerUser{})
+	DB.Migrator().DropTable(&ServerPermsPerUser{})
+	DB.Migrator().DropTable(&UserPlayer{})
+	DB.Migrator().DropTable(&ServerLog{})
+	DB.Migrator().DropTable(&PlayerLog{})
+	DB.Migrator().DropTable(&WebLog{})
+	DB.Migrator().DropTable(&ServerPerm{})
+	DB.Migrator().DropTable(&Server{})
+	DB.Migrator().DropTable(&UserPerm{})
+	DB.Migrator().DropTable(&User{})
+	DB.Migrator().DropTable(&Player{})
+	DB.Migrator().DropTable(&Mod{})
+	DB.Migrator().DropTable(&Version{})
+	DB.Migrator().DropTable(&Game{})
 }

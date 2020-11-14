@@ -50,3 +50,4 @@ In addition, for help debugging the database, a pgAdmin instance will be located
 - [ ] Linking player accounts with user accounts
 - [ ] Server auto backup functionality
 - [ ] Server auto update functionality
+- [ ] Add let's encrypt support

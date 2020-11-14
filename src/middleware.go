@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"msmf/database"
 )
 
 func printPath(next http.Handler) http.Handler {
@@ -40,7 +42,7 @@ func logRequest(next http.Handler) http.Handler {
 		cookies := string(jsonOut)
 		
 		// Not complete yet
-		db.Create(&WebLog{
+		database.DB.Create(&database.WebLog{
 			Time: time.Now(),
 			IP: strings.Split(r.RemoteAddr, ":")[0],
 			Method: r.Method,
