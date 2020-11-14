@@ -11,8 +11,6 @@ import (
 
 //Login handler
 func Login(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-	
   username := r.FormValue("username")
 	passwd := r.FormValue("password")
 

@@ -123,6 +123,10 @@ func CreatePerms() {
 			Name: "delete_user",
 			Description: "Enables the ability to delete users from the web portal",
 		},
+		{
+			Name: "view_logs",
+			Description: "Allows a user to view a history of web server logs",
+		},
 	}
 
 	// Server Permissions
@@ -206,8 +210,8 @@ func MakeAdmin() {
 		Columns: []clause.Column{{Name: "user_id"}, {Name: "user_perm_id"}},
 		DoNothing: true,
 	}).Create(PermsPerUser{
-		UserID: admin.ID,
-		UserPermID: userPerm.ID,
+		UserID: *admin.ID,
+		UserPermID: *userPerm.ID,
 	})
 }
 
@@ -222,6 +226,7 @@ func CreateTables() {
 		&ServerPerm{},
 		&User{},
 		&UserPerm{},
+		&Referrer{},
 		&Player{},
 		&ModsPerServer{},
 		&PermsPerUser{},
@@ -248,6 +253,7 @@ func DropTables() {
 	DB.Migrator().DropTable(&WebLog{})
 	DB.Migrator().DropTable(&ServerPerm{})
 	DB.Migrator().DropTable(&Server{})
+	DB.Migrator().DropTable(&Referrer{})
 	DB.Migrator().DropTable(&UserPerm{})
 	DB.Migrator().DropTable(&User{})
 	DB.Migrator().DropTable(&Player{})

@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/gorilla/mux"
+  "github.com/gorilla/mux"
   
   "msmf/database"
   "msmf/routes"
@@ -52,8 +52,11 @@ func main() {
   })
   router.HandleFunc("/login", routes.Login).Methods("POST")
 
+  // Handle API calls
   api := router.PathPrefix("/api").Subrouter()
   api.HandleFunc("/ws", routes.WSHandler)
+  api.HandleFunc("/refer", routes.GetReferrals).Methods("GET", "PUT")
+  api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "PUT")
 
   // Handle static traffic
   router.PathPrefix("/").Handler(http.FileServer(HTMLStrippingFileSystem{http.Dir("static")})).Methods("GET")
@@ -62,7 +65,7 @@ func main() {
   router.Use(printPath)
 
   // See if a user is authenticated to a page before displaying
-  router.Use(checkAuthenticated)
+  // router.Use(checkAuthenticated)
 
   // Set up server listen address
   listenAddr, exists := os.LookupEnv("LISTEN")

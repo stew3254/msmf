@@ -67,7 +67,7 @@ func checkAuthenticated(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenCookie, err:= r.Cookie("token")
 		// Cookie not found
-		if err != nil && r.URL.String() != "/login" {
+		if err != nil && !checkValidUnauthenticatedRoutes(r.URL.String()) {
 			// http.Redirect(w, r, "/login", http.StatusFound)
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
@@ -75,27 +75,19 @@ func checkAuthenticated(next http.Handler) http.Handler {
 
 		if r.URL.String() == "/login" {
 			// All good, no need to log in again
-			if utils.ValidateToken(tokenCookie.Value) {
-				http.Redirect(w, r, "/", http.StatusFound)
+			if err != nil || !utils.ValidateToken(tokenCookie.Value) {
+				next.ServeHTTP(w, r)
 			} else {
+				http.Redirect(w, r, "/", http.StatusFound)
+				return
+			}
+		} else if checkValidUnauthenticatedRoutes(r.URL.String()) {
 				next.ServeHTTP(w, r)
 				return
-			}
-		} else if !checkValidUnauthenticatedRoutes(r.URL.String()) {
-			tokenCookie, err:= r.Cookie("token")
-			// Cookie not found
-			if err != nil {
-				// http.Redirect(w, r, "/login", http.StatusFound)
-				http.Error(w, "Forbidden", http.StatusForbidden)
-				return
-			}
-
-			// Validate token
-			if !utils.ValidateToken(tokenCookie.Value) {
-				// http.Redirect(w, r, "/login", http.StatusFound)
-				http.Error(w, "Forbidden", http.StatusForbidden)
-				return
-			}
+		} else if !utils.ValidateToken(tokenCookie.Value) {
+			// http.Redirect(w, r, "/login", http.StatusFound)
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
 		}
 		next.ServeHTTP(w, r)
 	})
