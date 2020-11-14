@@ -38,8 +38,8 @@ In addition, for help debugging the database, a pgAdmin instance will be located
 
 ## TODO
 
-- [ ] Default admin account where the user sets the password
-- [ ] Login functionality
+- [x] Default admin account where the user sets the password
+- [x] Login functionality
 - [ ] Referral system to allow other users to join the portal
 - [ ] Permission checking
 - [ ] Permission management system

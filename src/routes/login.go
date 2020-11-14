@@ -11,8 +11,8 @@ import (
 
 //Login handler
 func Login(w http.ResponseWriter, r *http.Request) {
-  defer r.Body.Close()
-
+	defer r.Body.Close()
+	
   username := r.FormValue("username")
 	passwd := r.FormValue("password")
 
@@ -39,7 +39,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 			HttpOnly: true,
 			SameSite: http.SameSiteStrictMode,
 		})
-		http.Redirect(w, r, "/auth", http.StatusFound)
+		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
 	w.WriteHeader(http.StatusForbidden)

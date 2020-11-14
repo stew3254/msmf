@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"msmf/database"
+	"msmf/utils"
 )
 
 func printPath(next http.Handler) http.Handler {
@@ -56,15 +57,31 @@ func logRequest(next http.Handler) http.Handler {
 }
 
 // Good enough for now to check which routes will accept unauthenticated requests
-func checkvalidUnauthenticatedRoutes(url string) bool {
-	return (!strings.HasSuffix(url, ".css") && !strings.HasSuffix(url, ".js") && !strings.HasSuffix(url, ".map") && url != "/" && url != "/login")
+func checkValidUnauthenticatedRoutes(url string) bool {
+	return (strings.HasSuffix(url, ".css") || strings.HasSuffix(url, ".js") || strings.HasSuffix(url, ".map") || url == "/" || url == "/login")
 }
 
 // Checks to see if a user is authenticated to a page before displaying
 // If they aren't authenticated, they will be redirected to the login page
 func checkAuthenticated(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if checkvalidUnauthenticatedRoutes(r.URL.String()) {
+		tokenCookie, err:= r.Cookie("token")
+		// Cookie not found
+		if err != nil && r.URL.String() != "/login" {
+			// http.Redirect(w, r, "/login", http.StatusFound)
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+
+		if r.URL.String() == "/login" {
+			// All good, no need to log in again
+			if utils.ValidateToken(tokenCookie.Value) {
+				http.Redirect(w, r, "/", http.StatusFound)
+			} else {
+				next.ServeHTTP(w, r)
+				return
+			}
+		} else if !checkValidUnauthenticatedRoutes(r.URL.String()) {
 			tokenCookie, err:= r.Cookie("token")
 			// Cookie not found
 			if err != nil {
@@ -73,15 +90,12 @@ func checkAuthenticated(next http.Handler) http.Handler {
 				return
 			}
 
-			// See if user exists
-			user := database.User{}
-			result :=  database.DB.Where("token = ?", tokenCookie.Value).First(&user)
-			if result.Error != nil || time.Now().After(user.TokenExpiration) {
+			// Validate token
+			if !utils.ValidateToken(tokenCookie.Value) {
 				// http.Redirect(w, r, "/login", http.StatusFound)
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
-
 		}
 		next.ServeHTTP(w, r)
 	})

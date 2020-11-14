@@ -11,12 +11,17 @@ import (
 	"gorm.io/gorm/clause"
 	"gorm.io/driver/postgres"
   "golang.org/x/crypto/bcrypt"
-
-	"msmf/utils"
 )
 
 // DB is a global db connection to be shared
 var DB *gorm.DB
+
+// checkExists checks if a value exists and fails if it doesn't
+func checkExists(exists bool, msg string) {
+	if !exists {
+		log.Fatal(msg)
+	}
+}
 
 //ConnectDB sets up the initial connection to the database along with retrying attempts
 func ConnectDB(dbType string) error {
@@ -24,17 +29,17 @@ func ConnectDB(dbType string) error {
 	dbTypeUpper := strings.ToUpper(dbType)
 
 	user, exists := os.LookupEnv(dbTypeUpper+"_USER")
-	utils.CheckExists(exists, "Couldn't find database user")
+	checkExists(exists, "Couldn't find database user")
 	password, exists := os.LookupEnv(dbTypeUpper+"_PASSWORD")
-	utils.CheckExists(exists, "Couldn't find database password")
+	checkExists(exists, "Couldn't find database password")
 
 	// Get database params
 	dbServer, exists := os.LookupEnv(dbTypeUpper+"_SERVER")
-	utils.CheckExists(exists, "Couldn't find database server")
+	checkExists(exists, "Couldn't find database server")
 	dbPort, exists := os.LookupEnv(dbTypeUpper+"_PORT")
-	utils.CheckExists(exists, "Couldn't find database port")
+	checkExists(exists, "Couldn't find database port")
 	dbName, exists := os.LookupEnv(dbTypeUpper+"_DB")
-	utils.CheckExists(exists, "Couldn't find database name")
+	checkExists(exists, "Couldn't find database name")
 	connectionString := fmt.Sprintf(
 		"sslmode=disable host=%s port=%s dbname=%s user=%s password=%s",
 		dbServer,
