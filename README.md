@@ -38,10 +38,10 @@ In addition, for help debugging the database, a pgAdmin instance will be located
 
 ## TODO
 
-- [ ] Default admin account where the user sets the password
-- [ ] Login functionality
-- [ ] Referral system to allow other users to join the portal
-- [ ] Permission checking
+- [x] Default admin account where the user sets the password
+- [x] Login functionality
+- [x] Referral system to allow other users to join the portal
+- [x] Permission checking
 - [ ] Permission management system
 - [ ] Server creation
 - [ ] Server configuration interface
@@ -50,3 +50,4 @@ In addition, for help debugging the database, a pgAdmin instance will be located
 - [ ] Linking player accounts with user accounts
 - [ ] Server auto backup functionality
 - [ ] Server auto update functionality
+- [ ] Add let's encrypt support

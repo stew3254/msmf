@@ -1,4 +1,4 @@
-bin/
+certs/
 
 .env
 !.env-template

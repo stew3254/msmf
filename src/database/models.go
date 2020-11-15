@@ -1,4 +1,4 @@
-package main
+package database
 
 import (
 	"time"
@@ -50,9 +50,11 @@ type ServerPerm struct {
 type User struct {
 	ID *int `gorm:"primaryKey; type:serial"`
 	Username string `gorm:"type: varchar(32) not null unique"`
-	Password string `gorm:"type: varchar(128) not null"`
+	Password []byte `gorm:"type: bytea not null"`
+	Token string `gorm: type varchar(64)`
+	TokenExpiration time.Time
 	ReferredBy *int
-	Referrer *User `gorm:"foreignKey:ReferredBy;constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
+	// Referrer *User `gorm:"foreignKey:ReferredBy;constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
 }
 
 // UserPerm Model
@@ -60,6 +62,14 @@ type UserPerm struct {
 	ID *int `gorm:"primaryKey; type:serial"`
 	Name string `gorm:"type: varchar(64) not null unique"`
 	Description string `gorm:"type: text"`
+}
+
+// Referrer Model. Where active user referrals reside
+type Referrer struct {
+	Code int `gorm:"primaryKey"`
+	UserID *int
+	User User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Expiration time.Time `gorm:"not null"`
 }
 
 // Player Model
@@ -70,42 +80,42 @@ type Player struct {
 
 // ModsPerServer Model. Foriegn Key table
 type ModsPerServer struct {
-	ModID *int `gorm:"index:mods_per_server,unique"`
+	ModID int `gorm:"not null; index:mods_per_server,unique"`
 	Mod Mod `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
-	ServerID *int `gorm:"index:mods_per_server,unique"`
+	ServerID int `gorm:"not null; index:mods_per_server,unique"`
 	Server Server `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
 }
 
 // PermsPerUser Model. Foriegn Key table
 type PermsPerUser struct {
-	UserID *int `gorm:"index:perms_per_user,unique"`
+	UserID int `gorm:"not null; index:perms_per_user,unique"`
 	User User `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
-	UserPermID *int `gorm:"index:perms_per_user,unique"`
+	UserPermID int `gorm:"not null; index:perms_per_user,unique"`
 	UserPerm UserPerm `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
 }
 
 // ServerPermsPerUser Model. Foriegn Key table
 type ServerPermsPerUser struct {
-	ServerID *int `gorm:"index:server_perms_per_user,unique"`
+	ServerID int `gorm:"not null; index:server_perms_per_user,unique"`
 	Server Server `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
-	ServerPermID *int `gorm:"index:server_perms_per_user,unique"`
+	ServerPermID int `gorm:"not null; index:server_perms_per_user,unique"`
 	ServerPerm ServerPerm `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
-	UserID *int `gorm:"index:server_perms_per_user,unique"`
+	UserID int `gorm:"not null; index:server_perms_per_user,unique"`
 	User User `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
 }
 
 // UserPlayer Model. Foriegn Key table
 type UserPlayer struct {
-	UserID *int `gorm:"index:user_player,unique"`
+	UserID int `gorm:"not null; index:user_player,unique"`
 	User User `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
-	PlayerID *int `gorm:"index:user_player,unique"`
+	PlayerID int `gorm:"not null; index:user_player,unique"`
 	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
 }
 
 // ServerLog Model
 type ServerLog struct {
 	ID *int `gorm:"primaryKey; type:serial"`
-	Time time.Time `gorm:"not null"`
+	Time time.Time `gorm:"type: timestamp not null"`
 	Command string `gorm:"type: text not null"`
 	PlayerID *int
 	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
@@ -115,7 +125,8 @@ type ServerLog struct {
 
 // PlayerLog Model
 type PlayerLog struct {
-	Time time.Time `gorm:"primaryKey; type:serial"`
+	ID *int `gorm:"primaryKey; type: serial"`
+	Time time.Time `gorm:"type: timestamp not null"`
 	Action string `gorm:"type: text not null"`
 	PlayerID *int
 	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
@@ -126,7 +137,7 @@ type PlayerLog struct {
 // WebLog Model
 type WebLog struct {
 	ID *int `gorm:"primaryKey; type:serial"`
-	Time time.Time `gorm:"not null"`
+	Time time.Time `gorm:"type: timestamp not null"`
 	IP string `gorm:"type: varchar(128) not null"`
 	Method string `gorm:"type: text not null"`
 	StatusCode int `gorm:"not null"`
