@@ -20,11 +20,8 @@ func GetReferrals(w http.ResponseWriter, r *http.Request) {
 	// Response to send later
 	resp := make(map[string]interface{})
 
-	type tmp struct{
-		Referrer string
-		Code int
-		Expiration time.Time
-	}
+	// Remove expired codes first
+	database.DB.Where("expiration < ?", time.Now()).Delete(&database.Referrer{})
 
 	referrals := make([]map[string]interface{}, 0)
 	rows, err := database.DB.Table("referrers").Select("users.username as referrer, referrers.code, referrers.expiration").Joins("inner join users on referrers.user_id = users.id").Rows()

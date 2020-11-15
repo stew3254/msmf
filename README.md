@@ -40,8 +40,8 @@ In addition, for help debugging the database, a pgAdmin instance will be located
 
 - [x] Default admin account where the user sets the password
 - [x] Login functionality
-- [ ] Referral system to allow other users to join the portal
-- [ ] Permission checking
+- [x] Referral system to allow other users to join the portal
+- [x] Permission checking
 - [ ] Permission management system
 - [ ] Server creation
 - [ ] Server configuration interface
