@@ -55,7 +55,8 @@ func main() {
   // Handle API calls
   api := router.PathPrefix("/api").Subrouter()
   api.HandleFunc("/ws", routes.WSHandler)
-  api.HandleFunc("/refer", routes.GetReferrals).Methods("GET", "PUT")
+  api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
+  api.HandleFunc("/refer/new", routes.CreateReferral).Methods("GET")
   api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "PUT")
 
   // Handle static traffic

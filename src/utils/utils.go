@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"gorm.io/gorm/clause"
-
 	"msmf/database"
 )
 
@@ -33,18 +31,62 @@ func ValidateToken(token string) bool {
 	return true
 }
 
+// PermCheck is a struct to build a dynamic query to tell if
+// the search entity has proper permissions
+// Perms must be of type string or []string
+type PermCheck struct {
+	FKTable string
+	Perms interface{} // Can be of type string or []string
+	PermTable string
+	Search interface{} // Can be of any type
+	SearchCol string
+	SearchTable string
+}
+
 // CheckPermissions takes the permission type (PermsPerUser vs ServerPermsPerUser)
 // The permission(s) as a string or []string
-func CheckPermissions(permType interface{}, perms, v interface{}) bool {
-	switch p := perms.(type) {
+func CheckPermissions(permCheck *PermCheck) bool {
+	// Build the query string
+	query := fmt.Sprintf(`
+		SELECT COUNT(*) FROM %s
+		INNER JOIN %s
+			ON %s.id = %s.%s_id
+		INNER JOIN %s
+			ON %s.id = %s.%s_id
+		WHERE %s.%s = ?
+		AND %s.name in ?`,
+		permCheck.FKTable,
+		permCheck.PermTable,
+		permCheck.PermTable,
+		permCheck.FKTable,
+		permCheck.PermTable[:len(permCheck.PermTable) - 1],
+		permCheck.SearchTable,
+		permCheck.SearchTable,
+		permCheck.FKTable,
+		permCheck.SearchTable[:len(permCheck.SearchTable) - 1],
+		permCheck.SearchTable,
+		permCheck.SearchCol,
+		permCheck.PermTable,
+	)
+
+	var perms []string
+	switch p := permCheck.Perms.(type) {
 	case string:
-		res := database.DB.Model(permType).Preload(clause.Associations).Where("name = ?", p).First(v)
-		return res.Error == nil
+		perms = []string{
+			"administrator",
+			p,
+		}
+		break
 	case []string:
-		res := database.DB.Model(permType).Preload(clause.Associations).Where("name in ?", p).First(v)
-		return res.Error == nil
-	default:
+		perms = append(p, "administrator")
+	}
+
+	result := database.DB.Raw(query, permCheck.Search, perms)
+	if result.Error != nil {
 		return false
 	}
-	return true
+
+	var count int
+	result.Scan(&count)
+	return count > 0
 }

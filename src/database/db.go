@@ -116,7 +116,7 @@ func CreatePerms() {
 			Description: "Enables the ability to modify all server permissions for all servers and users. Note, you cannot remove permissions from people who own servers",
 		},
 		{
-			Name: "create_user",
+			Name: "invite_user",
 			Description: "Enables the ability to add more users to the web portal",
 		},
 		{

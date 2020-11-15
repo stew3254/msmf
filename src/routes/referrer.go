@@ -9,8 +9,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"math/rand"
 
 	"msmf/database"
+	"msmf/utils"
 )
 
 // GetReferrals shows all active referral links
@@ -47,6 +49,76 @@ func GetReferrals(w http.ResponseWriter, r *http.Request) {
 	w.Write(out)
 }
 
+// CreateReferral makes a new referral link
+func CreateReferral(w http.ResponseWriter, r *http.Request) {
+	// Response to send later
+	resp := make(map[string]interface{})
+
+	// Get Token
+	tokenCookie, err := r.Cookie("token")
+	// Invalid token
+	if err != nil || !utils.ValidateToken(tokenCookie.Value) {
+		w.WriteHeader(http.StatusUnauthorized)
+		resp["error"] = "Unauthorized"
+	} else {
+		user := database.User{
+			Token: tokenCookie.Value,
+		}
+		result := database.DB.First(&user)
+		// Error grabbing the user
+		if result.Error != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			resp["error"] = "Unauthorized"
+		// Check user permissions
+		} else {
+			hasPerms := utils.CheckPermissions(&utils.PermCheck{
+				FKTable: "perms_per_users",
+				Perms: "invite_user",
+				PermTable: "user_perms",
+				Search: user.Token,
+				SearchCol: "token",
+				SearchTable: "users",
+			})
+			// User doesn't have correct perms
+			if !hasPerms {
+				w.WriteHeader(http.StatusUnauthorized)
+				resp["error"] = "Unauthorized"
+			// Create the invite code
+			} else {
+				// Make sure to seed the random
+				// Could use crypto random, but this doesn't really need to be secure
+				// It's not a secret, nor does it really matter
+				rand.Seed(time.Now().Unix())
+
+				// Loop until a valid code is found
+				for {
+					code := (rand.Int() % (int(math.Pow(10, 8)) - int(math.Pow(10,7)-1))) + int(math.Pow(10, 7))
+					referral := database.Referrer{
+						Code: code,
+						UserID: user.ID,
+						Expiration: time.Now().Add(time.Hour*6),
+					}
+					result = database.DB.Create(&referral)
+					if result.Error == nil {
+						resp["status"] = "Success"
+						resp["code"] = code
+						break
+					} else {
+						log.Println(result.Error.Error())
+					}
+				}
+			}
+		}
+	}
+
+
+	// Write out the body
+	out, err := json.Marshal(resp)
+	if err != nil {
+		log.Println(err)
+	}
+	w.Write(out)
+}
 // Refer allows users with proper permissions to send someone an invite code
 // in order to make an account
 func Refer(w http.ResponseWriter, r *http.Request) {

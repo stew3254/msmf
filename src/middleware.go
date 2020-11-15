@@ -65,7 +65,7 @@ func checkValidUnauthenticatedRoutes(url string) bool {
 // If they aren't authenticated, they will be redirected to the login page
 func checkAuthenticated(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenCookie, err:= r.Cookie("token")
+		tokenCookie, err := r.Cookie("token")
 		// Cookie not found
 		if err != nil && !checkValidUnauthenticatedRoutes(r.URL.String()) {
 			// http.Redirect(w, r, "/login", http.StatusFound)
