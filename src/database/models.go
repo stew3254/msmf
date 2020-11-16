@@ -13,14 +13,14 @@ type Game struct {
 // Version Model
 type Version struct {
 	ID *int `gorm:"primaryKey; type:serial"`
-	Tag string `gorm:"type:text not null"`
-	GameID *int
+	Tag string `gorm:"type:text not null; index:version,unique"`
+	GameID *int `gorm:"not null; index:version,unique"`
 	Game Game `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
 }
 
 // Mod Model
 type Mod struct {
-	ID *int `gorm:"primaryKey; type:serial; index:mod,unique"`
+	ID *int `gorm:"primaryKey; type:serial"`
 	URL string `gorm:"type: text not null; index:mod,unique"`
 	Name string `gorm:"type: varchar(64) not null; index:mod,unique"`
 	GameID *int `gorm:"not null; index:mod,unique"`
@@ -33,8 +33,11 @@ type Mod struct {
 type Server struct {
 	ID *int `gorm:"primaryKey; type:serial"`
 	Port int16 `gorm:"not null; unique; check: Port < 65536; check: Port > 0"`
+	Name int16 `gorm:"type: varchar(64)"`
 	GameID *int `gorm:"not null"`
 	Game Game `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
+	UserID *int `gorm:"not null"`
+	User User `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
 	VersionID *int
 	Version Version `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
 }
@@ -51,7 +54,7 @@ type User struct {
 	ID *int `gorm:"primaryKey; type:serial"`
 	Username string `gorm:"type: varchar(32) not null unique"`
 	Password []byte `gorm:"type: bytea not null"`
-	Token string `gorm: type varchar(64)`
+	Token string `gorm: type varchar(64) not null unique`
 	TokenExpiration time.Time
 	ReferredBy *int
 	// Referrer *User `gorm:"foreignKey:ReferredBy;constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
@@ -67,9 +70,9 @@ type UserPerm struct {
 // Referrer Model. Where active user referrals reside
 type Referrer struct {
 	Code int `gorm:"primaryKey"`
-	UserID *int
-	User User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	Expiration time.Time `gorm:"not null"`
+	UserID *int `gorm:"not null"`
+	User User `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
 // Player Model
@@ -84,6 +87,8 @@ type ModsPerServer struct {
 	Mod Mod `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
 	ServerID int `gorm:"not null; index:mods_per_server,unique"`
 	Server Server `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
+	VersionID int `gorm:"not null; index:mods_per_server,unique"`
+	Version Version `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
 }
 
 // PermsPerUser Model. Foriegn Key table
@@ -117,10 +122,10 @@ type ServerLog struct {
 	ID *int `gorm:"primaryKey; type:serial"`
 	Time time.Time `gorm:"type: timestamp not null"`
 	Command string `gorm:"type: text not null"`
-	PlayerID *int
-	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
-	ServerID *int
-	Server Server `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
+	PlayerID *int` gorm:"not null"`
+	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
+	ServerID *int `gorm:"not null"`
+	Server Server `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
 }
 
 // PlayerLog Model
@@ -128,10 +133,8 @@ type PlayerLog struct {
 	ID *int `gorm:"primaryKey; type: serial"`
 	Time time.Time `gorm:"type: timestamp not null"`
 	Action string `gorm:"type: text not null"`
-	PlayerID *int
-	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
-	ServerID *int
-	Server Server `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL"`
+	PlayerID *int` gorm:"not null"`
+	Player Player `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`
 }
 
 // WebLog Model

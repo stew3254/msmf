@@ -57,7 +57,7 @@ func main() {
   api.HandleFunc("/ws", routes.WSHandler)
   api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
   api.HandleFunc("/refer/new", routes.CreateReferral).Methods("GET")
-  api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "PUT")
+  api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "POST")
 
   // Handle static traffic
   router.PathPrefix("/").Handler(http.FileServer(HTMLStrippingFileSystem{http.Dir("static")})).Methods("GET")
