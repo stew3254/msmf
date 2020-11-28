@@ -25,6 +25,10 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
+      # Create needed .env file
+      - name: Create .env file from template
+        run: cp .env-template .env
+
       # Try to build the development Docker containers
       - name: Run docker-compose build for development
         run: docker-compose -f docker-compose.dev.yml build
