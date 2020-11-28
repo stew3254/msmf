@@ -9,7 +9,7 @@ services:
       - 5432:5432
   web:
     build:
-      context: .
+      context: backend
       dockerfile: Dockerfile.dev
     container_name: msmf_dev
     env_file: .env
@@ -18,7 +18,7 @@ services:
     depends_on:
       - db
     volumes:
-      - ./backend:/srv/website/src:ro
+      - ./backend/src:/srv/website/src:ro
       - ./certs:/srv/website/certs:ro
       - static:/srv/website/static
   pgadmin:
@@ -32,10 +32,10 @@ services:
   parcel:
     container_name: msmf_parcel
     build:
-      context: web
+      context: frontend
       dockerfile: Dockerfile.dev
     volumes:
-      - ./web/src:/app/src:ro
+      - ./frontend/src:/app/src:ro
       - static:/app/dist
     environment:
       - CHOKIDAR_USEPOLLING=1
