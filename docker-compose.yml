@@ -15,3 +15,5 @@ services:
       - 80:5000
     depends_on:
       - db
+    volumes:
+      - ./certs:/srv/website/certs:ro

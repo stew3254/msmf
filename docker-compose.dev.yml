@@ -18,7 +18,7 @@ services:
     depends_on:
       - db
     volumes:
-      - ./src:/srv/website/src:ro
+      - ./backend:/srv/website/src:ro
       - ./certs:/srv/website/certs:ro
       - static:/srv/website/static
   pgadmin:

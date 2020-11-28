@@ -58,10 +58,8 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		resp["error"] = "Unauthorized"
 	} else {
-		user := database.User{
-			Token: tokenCookie.Value,
-		}
-		result := database.DB.First(&user)
+		user := database.User{}
+		result := database.DB.Where("token = ?", tokenCookie.Value).First(&user)
 		// Error grabbing the user
 		if result.Error != nil {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -160,13 +158,9 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 		// Could decode body
 		} else {
 			// Check if any of the following are missing
-			if len(body["username"]) == 0 || len(body["password"]) == 0 || len(body["confirm_password"]) == 0 {
+			if len(body["username"]) == 0 || len(body["password"]) == 0 {
 				w.WriteHeader(http.StatusBadRequest)
 				resp["error"] = "Bad Request"
-			// Make sure the confirm passwords match
-			} else if body["password"] != body["confirm_password"] {
-				w.WriteHeader(http.StatusBadRequest)
-				resp["error"] = "password must match confirm_password"
 			} else {
 				// Generate the password hash
 				hash, err := bcrypt.GenerateFromPassword([]byte(body["password"]), bcrypt.DefaultCost)

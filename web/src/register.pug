@@ -1,15 +1,21 @@
 head
   meta(name='viewport' content='width=device-width, initial-scale=1')
   link(rel="stylesheet", href="/css/login.sass")
+  script(src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous")
   title Login
 body
   .header
     h1 Register
-  form(action='/register' method='post')
+  .content
     label(for="username") Username
-    input#username(type='text' name='username')
+    input#username(type='text' name='username' required)
     label(for="password") Password
-    input#password(type='password' name='password')
+    input#password(type='password' name='password' required)
     label(for="confirm_password") Confirm Password
-    input#confirm_password(type='password' name='confirm_password')
-    input(type='submit' value='Register')
+    input#confirm_password(type='password' name='confirm_password' required)
+    label(for="code") Registration Code
+    input#code(type='text' name='code' maxlength=8 size=6 required)
+    button#register Register
+  br
+  a(href="/login") Login
+  script(src="/js/registration.js")
