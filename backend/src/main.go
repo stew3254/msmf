@@ -33,17 +33,25 @@ func main() {
 	router := mux.NewRouter()
 
 	// Handlers
+	// Not working?
 	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Oof, bad place"))
 	})
+	// Handle logins
 	router.HandleFunc("/login", routes.Login).Methods("POST")
 
 	// Handle API calls
 	api := router.PathPrefix("/api").Subrouter()
+	// Handle websocket connections
 	api.HandleFunc("/ws", routes.WSHandler)
+	// Get existing referral codes
 	api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
+	// Creating new referral codes
 	api.HandleFunc("/refer/new", routes.CreateReferral).Methods("GET")
+	// Handle referral code
 	api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "POST")
+	// Get user permissions
+	api.HandleFunc("/perm", routes.GetPerms).Methods("GET")
 
 	// Handle static traffic
 	router.PathPrefix("/").Handler(http.FileServer(HTMLStrippingFileSystem{http.Dir("static")})).Methods("GET")
@@ -66,7 +74,7 @@ func main() {
 		port = "5000"
 	}
 
-	// Set up tls
+	// Set up ssl
 	sslString, exists := os.LookupEnv("USE_SSL")
 	var ssl bool
 	if sslString == "true" || sslString == "yes" {

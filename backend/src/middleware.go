@@ -11,6 +11,7 @@ import (
 	"msmf/utils"
 )
 
+// Prints the HTTP method and request URI to the screen
 func printPath(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println(r.Method, r.RequestURI)
@@ -18,6 +19,7 @@ func printPath(next http.Handler) http.Handler {
 	})
 }
 
+// Logs the request to a database
 func logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut, err := json.Marshal(r.URL.Query())
@@ -26,7 +28,7 @@ func logRequest(next http.Handler) http.Handler {
 			return
 		}
 		queryParams := string(jsonOut)
-		
+
 		r.ParseForm()
 		jsonOut, err = json.Marshal(r.PostForm)
 		if err != nil {
@@ -34,31 +36,31 @@ func logRequest(next http.Handler) http.Handler {
 			return
 		}
 		postData := string(jsonOut)
-		
+
 		jsonOut, err = json.Marshal(r.Cookies())
 		if err != nil {
 			log.Println(err)
 			return
 		}
 		cookies := string(jsonOut)
-		
+
 		// Not complete yet
 		database.DB.Create(&database.WebLog{
-			Time: time.Now(),
-			IP: strings.Split(r.RemoteAddr, ":")[0],
-			Method: r.Method,
+			Time:        time.Now(),
+			IP:          strings.Split(r.RemoteAddr, ":")[0],
+			Method:      r.Method,
 			QueryParams: queryParams,
-			PostData: postData,
-			Cookies: cookies,
+			PostData:    postData,
+			Cookies:     cookies,
 		})
-		
+
 		next.ServeHTTP(w, r)
 	})
 }
 
 // Good enough for now to check which routes will accept unauthenticated requests
 func checkValidUnauthenticatedRoutes(url string) bool {
-	return (strings.HasSuffix(url, ".css") || strings.HasSuffix(url, ".js") || strings.HasSuffix(url, ".map") || url == "/" || url == "/login")
+	return strings.HasSuffix(url, ".css") || strings.HasSuffix(url, ".js") || strings.HasSuffix(url, ".map") || url == "/" || url == "/login"
 }
 
 // Checks to see if a user is authenticated to a page before displaying
@@ -82,8 +84,8 @@ func checkAuthenticated(next http.Handler) http.Handler {
 				return
 			}
 		} else if checkValidUnauthenticatedRoutes(r.URL.String()) {
-				next.ServeHTTP(w, r)
-				return
+			next.ServeHTTP(w, r)
+			return
 		} else if !utils.ValidateToken(tokenCookie.Value) {
 			// http.Redirect(w, r, "/login", http.StatusFound)
 			http.Error(w, "Forbidden", http.StatusForbidden)

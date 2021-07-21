@@ -21,14 +21,14 @@ services:
       - ./backend/src:/srv/website/src:ro
       - ./certs:/srv/website/certs:ro
       - static:/srv/website/static
-  pgadmin:
-    image: "dpage/pgadmin4"
-    container_name: "msmf_pgadmin"
-    env_file: .env
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
+  #  pgadmin:
+  #    image: "dpage/pgadmin4"
+  #    container_name: "msmf_pgadmin"
+  #    env_file: .env
+  #    ports:
+  #      - "5050:80"
+  #    depends_on:
+  #      - db
   parcel:
     container_name: msmf_parcel
     build:

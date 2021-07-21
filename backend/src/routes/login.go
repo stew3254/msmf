@@ -9,9 +9,9 @@ import (
 	"msmf/utils"
 )
 
-//Login handler
+// Login handler
 func Login(w http.ResponseWriter, r *http.Request) {
-  username := r.FormValue("username")
+	username := r.FormValue("username")
 	passwd := r.FormValue("password")
 
 	user := database.User{}
@@ -30,10 +30,10 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		database.DB.Save(&user)
 
 		http.SetCookie(w, &http.Cookie{
-			Name: "token",
-			Value: user.Token,
-			Expires: user.TokenExpiration,
-			Secure: true,
+			Name:     "token",
+			Value:    user.Token,
+			Expires:  user.TokenExpiration,
+			Secure:   true,
 			HttpOnly: true,
 			SameSite: http.SameSiteStrictMode,
 		})
