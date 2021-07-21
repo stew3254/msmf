@@ -10,6 +10,7 @@ import (
 // GetPerms will see which permissions a user has in the webserver
 // If the user supplies a serverID, it will show which users have permissions
 // they have for said server. Given both, it will query server permissions only for that user
+// TODO finish this function
 func GetPerms(w http.ResponseWriter, r *http.Request) {
 	resp := make(map[string]interface{})
 	query := r.URL.Query()
@@ -18,6 +19,7 @@ func GetPerms(w http.ResponseWriter, r *http.Request) {
 	// See if a server id was actually supplied, and if it's bad then error
 	if len(query.Get("server_id")) > 0 && err != nil {
 		utils.ErrorJSON(w, http.StatusBadRequest, "Server id must be an integer value")
+		return
 	}
 
 	// See if the user exists

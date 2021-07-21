@@ -39,6 +39,8 @@ func main() {
 	})
 	// Handle logins
 	router.HandleFunc("/login", routes.Login).Methods("POST")
+	// Handle changing password
+	router.HandleFunc("/change-password", routes.ChangePassword).Methods("POST")
 
 	// Handle API calls
 	api := router.PathPrefix("/api").Subrouter()

@@ -79,6 +79,7 @@ func checkAuthenticated(next http.Handler) http.Handler {
 			// All good, no need to log in again
 			if err != nil || !utils.ValidateToken(tokenCookie.Value) {
 				next.ServeHTTP(w, r)
+				return
 			} else {
 				http.Redirect(w, r, "/", http.StatusFound)
 				return
