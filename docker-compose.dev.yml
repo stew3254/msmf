@@ -18,6 +18,7 @@ services:
     depends_on:
       - db
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./backend/src:/srv/website/src:ro
       - ./certs:/srv/website/certs:ro
       - static:/srv/website/static
