@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"msmf/games"
 	"net/http"
 	"os"
 	"time"
@@ -42,16 +41,11 @@ func main() {
 	router.HandleFunc("/login", routes.Login).Methods("POST")
 	// Handle changing password
 	router.HandleFunc("/change-password", routes.ChangePassword).Methods("POST")
-	// DEBUG
-	router.HandleFunc("/minecraft", func(w http.ResponseWriter, r *http.Request) {
-		games.CreateServer()
-		w.Write([]byte("Okay"))
-	})
 
 	// Handle API calls
 	api := router.PathPrefix("/api").Subrouter()
-	// Handle websocket connections
-	api.HandleFunc("/ws", routes.WSHandler)
+	// Handle websocket connections for server consoles
+	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WSHandler)
 	// Get existing referral codes
 	api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
 	// Creating new referral codes

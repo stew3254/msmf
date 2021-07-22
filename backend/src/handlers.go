@@ -24,7 +24,7 @@ import (
 // 			return
 // 		}
 // 		queryParams := string(jsonOut)
-		
+
 // 		r.ParseForm()
 // 		jsonOut, err = json.Marshal(r.PostForm)
 // 		if err != nil {
@@ -32,14 +32,14 @@ import (
 // 			return
 // 		}
 // 		postData := string(jsonOut)
-		
+
 // 		jsonOut, err = json.Marshal(r.Cookies())
 // 		if err != nil {
 // 			log.Println(err)
 // 			return
 // 		}
 // 		cookies := string(jsonOut)
-		
+
 // 		// Not complete yet
 // 		db.Create(&WebLog{
 // 			Time: time.Now(),
@@ -79,11 +79,11 @@ type HTMLStrippingFileSystem struct {
 // the url will not have a trailing slash
 func (fs HTMLStrippingFileSystem) Open(name string) (http.File, error) {
 
-	// Directory doesn't exist, now checking 
+	// Directory doesn't exist, now checking
 	if len(strings.Split(name, ".")) == 1 {
 		if name == "/" {
-			//Do nothing
-		} else if strings.HasSuffix(name, "/"){
+			// Do nothing
+		} else if strings.HasSuffix(name, "/") {
 			name += "index.html"
 		} else {
 			// See if a file exists as a directory already

@@ -111,7 +111,7 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 // in order to make an account
 func Refer(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.String(), "/")
-	// Can't error due to regex checking on subrouter
+	// Can't error due to regex checking on route
 	code, _ := strconv.Atoi(parts[len(parts)-1])
 	resp := make(map[string]interface{})
 	if code < int(math.Pow(10, 7)) || code > int(math.Pow(10, 8))-1 {
