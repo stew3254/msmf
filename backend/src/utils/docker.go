@@ -45,7 +45,8 @@ func CreateServer(serverID int, image string, isImage bool, parameters []string)
 	var cmdSlice []string
 	cmdSlice = append([]string{
 		"docker",
-		"run",
+		"create",
+		"-it",
 		"--name",
 		fmt.Sprintf("msmf_server_%d", serverID)},
 		parameters...,
@@ -57,30 +58,31 @@ func CreateServer(serverID int, image string, isImage bool, parameters []string)
 	} else {
 		cmdSlice = append(cmdSlice, "-F", image)
 	}
+	log.Println(cmdSlice)
 	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
 
-	// Get stdin
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Get stdout
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Get stderr
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Start the docker container
+	// Create the docker container
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
+}
 
-	log.Println(stdin, stdout, stderr)
+// DeleteServer deletes a server if it exists
+func DeleteServer(name string) {
+	var cmdSlice []string
+	// First stop the container if it is running
+	cmdSlice = append([]string{"docker", "stop", name})
+	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
+	err := cmd.Run()
+	if err != nil {
+		log.Println(err)
+	}
+
+	// Remove the container
+	cmdSlice = append([]string{"docker", "rm", name})
+	cmd = exec.Command(cmdSlice[0], cmdSlice[1:]...)
+	err = cmd.Run()
+	if err != nil {
+		log.Println(err)
+	}
 }

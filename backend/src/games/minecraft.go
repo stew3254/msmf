@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-const MC_DEFAULT_PORT uint16 = 25565
+const McDefaultPort uint16 = 25565
 
 // MCIsVersion checks if the string is actually a valid Minecraft version
 func MCIsVersion(v string) bool {
