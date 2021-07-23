@@ -6,8 +6,10 @@ import (
 
 // Game Model
 type Game struct {
-	ID   *int   `gorm:"primaryKey; type:serial"`
-	Name string `gorm:"type:varchar(64) not null unique"`
+	ID      *int   `gorm:"primaryKey; type:serial"`
+	Name    string `gorm:"type:varchar(64) not null unique"`
+	Image   string `gorm:"type:varchar(64) not null"`
+	IsImage bool   `gorm:"type:bool not null"`
 }
 
 // Version Model
@@ -32,7 +34,7 @@ type Mod struct {
 // Server Model
 type Server struct {
 	ID        *int   `gorm:"primaryKey; type:serial"`
-	Port      int16  `gorm:"not null; unique; check: Port < 65536; check: Port > 0"`
+	Port      uint16 `gorm:"not null; unique; check: Port < 65536; check: Port > 0"`
 	Name      string `gorm:"type: varchar(64)"`
 	GameID    *int   `gorm:"not null"`
 	Game      Game   `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE"`

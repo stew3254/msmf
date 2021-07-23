@@ -20,14 +20,11 @@ func main() {
 		panic("failed to connect database")
 	}
 
-	// Used for debug purposes
+	// Used for debugging purposes
 	// database.DropTables()
 
-	// Create all of the tables with constraints
-	database.CreateTables()
-
-	// Create base admin account
-	database.MakeAdmin()
+	// Create all of the tables with constraints and add all necessary starting information
+	database.MakeDB()
 
 	// Create new base router for app
 	router := mux.NewRouter()
@@ -44,14 +41,27 @@ func main() {
 
 	// Handle API calls
 	api := router.PathPrefix("/api").Subrouter()
+	// Handle calls to create servers
+	api.HandleFunc("/server", routes.CreateServer).Methods("PUT")
+	// Handle calls to list servers
+	api.HandleFunc("/server", routes.GetServers).Methods("GET")
+	// Handle calls to view a server
+	api.HandleFunc("/server/{id:[0-9]+}", routes.ServerHandler).Methods("GET")
+	// Handle calls to update a server
+	api.HandleFunc("/server/{id:[0-9]+}", routes.UpdateServer).Methods("PATCH")
+	// Handle calls to delete servers
+	api.HandleFunc("/server/{id:[0-9]+}", routes.DeleteServer).Methods("DELETE")
+
 	// Handle websocket connections for server consoles
 	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WSHandler)
+
 	// Get existing referral codes
 	api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
 	// Creating new referral codes
 	api.HandleFunc("/refer/new", routes.CreateReferral).Methods("GET")
 	// Handle referral code
 	api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "POST")
+
 	// Get user permissions
 	api.HandleFunc("/perm", routes.GetPerms).Methods("GET")
 

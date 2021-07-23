@@ -11,7 +11,7 @@ import (
 	"msmf/database"
 )
 
-// ToJSON writes to json and logs errors. Simply here to reduce code duplication
+// ToJSON converts to json and logs errors. Simply here to reduce code duplication
 func ToJSON(v interface{}) []byte {
 	out, err := json.Marshal(v)
 	if err != nil {
@@ -25,7 +25,7 @@ func ErrorJSON(w http.ResponseWriter, status int, err string) {
 	w.WriteHeader(status)
 	resp := make(map[string]interface{})
 	resp["error"] = err
-	ToJSON(resp)
+	w.Write(ToJSON(resp))
 }
 
 // GenerateToken returns a token representing a logged in user

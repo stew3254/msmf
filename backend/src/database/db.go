@@ -23,7 +23,7 @@ func checkExists(exists bool, msg string) {
 	}
 }
 
-//ConnectDB sets up the initial connection to the database along with retrying attempts
+// ConnectDB sets up the initial connection to the database along with retrying attempts
 func ConnectDB(dbType string) error {
 	// Get user credentials
 	dbTypeUpper := strings.ToUpper(dbType)
@@ -91,8 +91,8 @@ func ConnectDB(dbType string) error {
 	return nil
 }
 
-// CreatePerms creates all server perms
-func CreatePerms() {
+// createPerms creates all server perms
+func createPerms() {
 	// User Permissions
 	userPerms := []UserPerm{
 		{
@@ -177,8 +177,8 @@ func CreatePerms() {
 	}).Create(&serverPerms)
 }
 
-// MakeAdmin upserts the default admin account
-func MakeAdmin() {
+// makeAdmin upserts the default admin account
+func makeAdmin() {
 	// See if password exists
 	passwd, exists := os.LookupEnv("ADMIN_PASSWORD")
 	if !exists {
@@ -218,8 +218,22 @@ func MakeAdmin() {
 	})
 }
 
-// CreateTables sets up the db
-func CreateTables() {
+// addGames adds all supported games and their versions to the database
+// This should only be used by developers who have tested the containers the servers will run in
+func addGames() {
+	// Add Minecraft
+	DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "name"}},
+		DoNothing: true,
+	}).Create(&Game{
+		Name:    "Minecraft",
+		Image:   "itzg/minecraft-server",
+		IsImage: true,
+	})
+}
+
+// MakeDB sets up the db
+func MakeDB() {
 	// Create all regular tables
 	DB.AutoMigrate(
 		&Game{},
@@ -241,7 +255,13 @@ func CreateTables() {
 	)
 
 	// Create base permissions
-	CreatePerms()
+	createPerms()
+
+	// Add all supported games
+	addGames()
+
+	// Create the admin account
+	makeAdmin()
 }
 
 // DropTables drops everything in the db

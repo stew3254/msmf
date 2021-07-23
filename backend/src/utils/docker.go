@@ -1,34 +1,11 @@
 package utils
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"log"
-	"os"
 	"os/exec"
 	"strings"
 )
-
-// Stdin Handles stdin from the server
-func Stdin(stdin *io.WriteCloser) {
-	defer (*stdin).Close()
-
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		io.Copy(*stdin, reader)
-	}
-}
-
-// Stderr Handles stderr from the server
-func Stderr(stderr *io.ReadCloser) {
-	scanner := bufio.NewScanner(*stderr)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		m := scanner.Text()
-		log.Println(m)
-	}
-}
 
 func GetContainers(running ...bool) (containers []string) {
 	cmdSlice := strings.Fields("docker container ls -a")
@@ -64,22 +41,29 @@ func GetGameServers(running ...bool) (servers []string) {
 	return
 }
 
-func CreateServer(name string, image string, isImage bool, parameters []string) {
+func CreateServer(serverID int, image string, isImage bool, parameters []string) {
 	var cmdSlice []string
+	cmdSlice = append([]string{
+		"docker",
+		"run",
+		"--name",
+		fmt.Sprintf("msmf_server_%d", serverID)},
+		parameters...,
+	)
+
+	// See if we are using a supported image or a dockerfile
 	if isImage {
-		cmdSlice = append([]string{"docker", "run"}, parameters...)
 		cmdSlice = append(cmdSlice, image)
 	} else {
-		cmdSlice = append([]string{"docker", "run"}, parameters...)
 		cmdSlice = append(cmdSlice, "-F", image)
 	}
 	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
 
 	// Get stdin
-	// stdin, err := cmd.StdinPipe()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Get stdout
 	stdout, err := cmd.StdoutPipe()
@@ -92,20 +76,11 @@ func CreateServer(name string, image string, isImage bool, parameters []string) 
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Handle stderr
-	go Stderr(&stderr)
 
 	// Start the docker container
 	if err := cmd.Start(); err != nil {
 		log.Fatal(err)
 	}
 
-	// Print output from the server
-	scanner := bufio.NewScanner(stdout)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		m := scanner.Text()
-		fmt.Println(m)
-	}
-	// cmd.Wait()
+	log.Println(stdin, stdout, stderr)
 }

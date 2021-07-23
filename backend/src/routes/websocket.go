@@ -49,7 +49,7 @@ func WSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Upgrade the http connection
+	// Upgrade the http connection to a websocket
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -64,7 +64,7 @@ func WSHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Prints and sends one back
+		// Prints and sends a message back
 		log.Println(string(p))
 		err = conn.WriteMessage(messageType, []byte("Message from the server!"))
 
