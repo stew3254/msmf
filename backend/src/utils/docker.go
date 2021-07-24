@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"github.com/creack/pty"
 	"io"
 	"log"
 	"os/exec"
@@ -124,10 +123,6 @@ func AttachServer(name string) (console Console, err error) {
 		name,
 	})
 	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
-	// Start command in a pty
-	ptmx, err := pty.Start(cmd)
-	// Try to close the pty at the end
-	defer ptmx.Close()
 
 	// Get stdin pipe
 	console.Stdin, err = cmd.StdinPipe()

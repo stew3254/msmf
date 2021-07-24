@@ -85,6 +85,7 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 
 // ServerConsole handles communication between the websocket and the pipes
 func ServerConsole(conn Connection) {
+	// Create new buffered scanners
 	outReader := bufio.NewScanner(conn.Console.Stdout)
 	errReader := bufio.NewScanner(conn.Console.Stderr)
 
@@ -94,15 +95,15 @@ func ServerConsole(conn Connection) {
 
 	// Handle reading messages from server to send to websocket
 	outHandler := func(reader io.ReadCloser, scanner *bufio.Scanner, c chan<- []byte) {
+		// Scan the data
 		for scanner.Scan() {
-			// Read in data and send to corresponding channel
-			data := scanner.Bytes()
-			log.Println(string(data))
-			c <- data
+			// Send over the data once received
+			c <- scanner.Bytes()
 
 			// Close if there is an error
 			if scanner.Err() != nil {
-				reader.Close()
+				// Best effort
+				_ = reader.Close()
 				return
 			}
 		}
@@ -119,19 +120,22 @@ func ServerConsole(conn Connection) {
 			n, data, err := conn.Conn.ReadMessage()
 			// If reading fails close the pipe and return
 			if err != nil {
-				w.Close()
+				// Best effort
+				_ = conn.Conn.Close()
+				_ = w.Close()
 				return
 			}
 
 			// If received a text message pass it on through the pipe
 			if n == websocket.TextMessage {
 				if len(data) > 0 {
-					log.Println("DEBUG", string(data))
+					data = append(data, byte('\n'))
 					n, err = w.Write(data)
-					log.Println(n)
 					// If writing fails close the pipe and return
 					if err != nil {
-						w.Close()
+						// Best effort
+						_ = conn.Conn.Close()
+						_ = w.Close()
 						return
 					}
 				}
@@ -147,13 +151,15 @@ func ServerConsole(conn Connection) {
 		var err error
 		select {
 		case data := <-stdoutChan:
-			err = conn.Conn.WriteMessage(websocket.TextMessage, append([]byte("1 "), data...))
+			err = conn.Conn.WriteMessage(websocket.TextMessage, data)
 		case data := <-stderrChan:
-			err = conn.Conn.WriteMessage(websocket.TextMessage, append([]byte("2 "), data...))
+			// Send stderr as a binary message so you can tell them apart
+			err = conn.Conn.WriteMessage(websocket.BinaryMessage, data)
 		}
 		// If there is an issue close the socket and exit
 		if err != nil {
-			conn.Conn.Close()
+			// Best effort
+			_ = conn.Conn.Close()
 			return
 		}
 	}
