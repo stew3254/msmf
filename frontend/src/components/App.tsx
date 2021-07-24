@@ -1,11 +1,12 @@
 import * as React from "react";
 import {BrowserRouter as Router, Link, Route, Switch} from "react-router-dom";
-import {Container, Nav, Navbar, NavDropdown, NavItem, NavLink, Row} from "react-bootstrap";
+import {Badge, Container, Nav, Navbar, NavDropdown, NavItem, NavLink, Row} from "react-bootstrap";
 import Home from "./Home";
 import Login from "./Login";
 import Invite from "./Invite";
 import Register from "./Register";
 import ChangePassword from "./ChangePassword";
+import DevConsole from "./DevConsole";
 
 export default function App() {
     return (
@@ -33,8 +34,8 @@ export default function App() {
                 <Row>
                     <div className="col-md-2">
                         <Nav variant="pills" className="flex-column sticky-top top-0">
-                            <NavItem>Servers</NavItem>
-                            <NavLink as={Link} to="/">Server 1</NavLink>
+                            <NavItem>Utilities</NavItem>
+                            <NavLink as={Link} to="/console">Console <Badge pill bg="info">dev</Badge></NavLink>
                         </Nav>
                     </div>
                     <div className="col-md-10">
@@ -50,6 +51,9 @@ export default function App() {
                             </Route>
                             <Route path="/change-password">
                                 <ChangePassword/>
+                            </Route>
+                            <Route path="/console">
+                                <DevConsole/>
                             </Route>
                             <Route path="/">
                                 <Home/>
