@@ -1,3 +1,2 @@
 
-rootProject.name = "msmf"
-
+rootProject.name = "msmf-frontend"
