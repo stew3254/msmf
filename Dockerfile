@@ -1,35 +1,40 @@
 # build web server
-FROM golang:alpine AS go-build
+FROM golang:latest AS go-build
 
 WORKDIR /go/src/
 
-COPY go.mod ./
+COPY ./backend/src/go.mod ./
 RUN go mod download
 
-COPY ./src ./
+COPY ./backend/src ./
 RUN go build -o server
 
 # build static files
-# FROM node:alpine AS node-build
-
-# WORKDIR /node/src/
-
-# RUN npm add -g pnpm
-
-# COPY package.json pnpm-lock.yml ./
-# RUN pnpm install
-
-# COPY ./static ./
-# RUN pnpm run build
+#FROM node:16 AS node-build
+#
+#WORKDIR /node/src/
+#
+#RUN npm add -g pnpm
+#
+##COPY frontend/package.json frontend/pnpm-lock.yml ./
+#COPY ./frontend/package.json ./
+#RUN pnpm install
+#
+#COPY ./frontend/src ./src
+#RUN pnpm run build
 
 # copy server and static files to clean alpine image
-FROM alpine:latest
+FROM debian:latest
 
-WORKDIR /opt/msmf
+WORKDIR /srv/website
+EXPOSE 5000
+
+RUN apt-get update -y && apt-get upgrade -y && apt-get dist-upgrade -y && apt-get install curl -y
+RUN curl -sSL https://get.docker.com/ | sh
+
 COPY --from=go-build /go/src/ ./
-COPY ./static ./static
-# COPY --from=node-build /node/dist/ /static
+#COPY ./static ./static
+#COPY --from=node-build /node/dist/ /static
 
-EXPOSE 80
 
 CMD ["./server"]

@@ -1,6 +1,6 @@
 version: '3.1'
 
-services: 
+services:
   db:
     image: postgres:alpine
     container_name: msmf_db
@@ -11,9 +11,24 @@ services:
     build: .
     container_name: msmf
     env_file: .env
-    ports: 
-      - 80:5000
+    ports:
+      - 8000:5000
     depends_on:
       - db
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./certs:/srv/website/certs:ro
+      - static:/srv/website/static
+  parcel:
+    container_name: msmf_parcel
+    build:
+      context: frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - static:/app/dist
+    environment:
+      - CHOKIDAR_USEPOLLING=1
+
+volumes:
+  static:
