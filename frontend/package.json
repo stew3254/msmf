@@ -7,17 +7,13 @@
     "start": "parcel src/*.pug",
     "watch": "parcel watch src/*.pug"
   },
-  "dependencies": {
-    "object-assign": "^4.1.1",
-    "react": "^17.0.1",
-    "react-dom": "^17.0.1",
-    "scheduler": "^0.20.1"
-  },
+  "private": true,
   "devDependencies": {
-    "parcel-bundler": "^1.12.4",
-    "pug": "^3.0.0",
-    "sass": "^1.26.10",
-    "typescript": "^3.9.7"
+    "@parcel/transformer-pug": "2.0.0-beta.2",
+    "parcel": "^2.0.0-beta.2"
   },
-  "private": true
+  "dependencies": {
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2"
+  }
 }
