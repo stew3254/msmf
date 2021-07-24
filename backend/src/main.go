@@ -42,7 +42,7 @@ func main() {
 	// Handle API calls
 	api := router.PathPrefix("/api").Subrouter()
 	// Handle calls to create servers
-	api.HandleFunc("/server", routes.CreateServer).Methods("PUT")
+	api.HandleFunc("/server", routes.CreateServer).Methods("POST")
 	// Handle calls to list servers
 	api.HandleFunc("/server", routes.GetServers).Methods("GET")
 	// Handle calls to view a server
@@ -53,7 +53,7 @@ func main() {
 	api.HandleFunc("/server/{id:[0-9]+}", routes.DeleteServer).Methods("DELETE")
 
 	// Handle websocket connections for server consoles
-	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WSHandler)
+	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WsServerHandler)
 
 	// Get existing referral codes
 	api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")

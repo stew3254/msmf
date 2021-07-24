@@ -2,10 +2,23 @@ package utils
 
 import (
 	"fmt"
+	"github.com/creack/pty"
+	"io"
 	"log"
 	"os/exec"
 	"strings"
 )
+
+type Console struct {
+	Stdin  io.WriteCloser
+	Stdout io.ReadCloser
+	Stderr io.ReadCloser
+}
+
+// GameName returns the docker container name
+func GameName(serverID int) string {
+	return fmt.Sprintf("msmf_server_%d", serverID)
+}
 
 func GetContainers(running ...bool) (containers []string) {
 	cmdSlice := strings.Fields("docker container ls -a")
@@ -41,14 +54,15 @@ func GetGameServers(running ...bool) (servers []string) {
 	return
 }
 
+// CreateServer creates the docker container for the server, but does not start it
 func CreateServer(serverID int, image string, isImage bool, parameters []string) {
 	var cmdSlice []string
 	cmdSlice = append([]string{
 		"docker",
 		"create",
-		"-it",
+		"-i",
 		"--name",
-		fmt.Sprintf("msmf_server_%d", serverID)},
+		GameName(serverID)},
 		parameters...,
 	)
 
@@ -56,9 +70,8 @@ func CreateServer(serverID int, image string, isImage bool, parameters []string)
 	if isImage {
 		cmdSlice = append(cmdSlice, image)
 	} else {
-		cmdSlice = append(cmdSlice, "-F", image)
+		cmdSlice = append(cmdSlice, "-F", "game_dockerfiles/"+image)
 	}
-	log.Println(cmdSlice)
 	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
 
 	// Create the docker container
@@ -85,4 +98,56 @@ func DeleteServer(name string) {
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+// StartServer starts the docker container
+func StartServer(name string) (err error) {
+	var cmdSlice []string
+	cmdSlice = append([]string{
+		"docker",
+		"start",
+		name,
+	})
+	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
+
+	// Start the server
+	err = cmd.Start()
+	return err
+}
+
+// AttachServer attaches to the docker container and returns its pipes
+func AttachServer(name string) (console Console, err error) {
+	var cmdSlice []string
+	cmdSlice = append([]string{
+		"docker",
+		"attach",
+		name,
+	})
+	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
+	// Start command in a pty
+	ptmx, err := pty.Start(cmd)
+	// Try to close the pty at the end
+	defer ptmx.Close()
+
+	// Get stdin pipe
+	console.Stdin, err = cmd.StdinPipe()
+	if err != nil {
+		return console, err
+	}
+
+	// Get stdout pipe
+	console.Stdout, err = cmd.StdoutPipe()
+	if err != nil {
+		return console, err
+	}
+
+	// Get stderr pipe
+	console.Stderr, err = cmd.StderrPipe()
+	if err != nil {
+		return console, err
+	}
+
+	// Start the server
+	err = cmd.Start()
+	return console, err
 }

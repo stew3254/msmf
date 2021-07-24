@@ -2,7 +2,6 @@ package routes
 
 import (
 	"encoding/json"
-	"fmt"
 	"msmf/database"
 	"msmf/games"
 	"msmf/utils"
@@ -151,7 +150,7 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 	// See if server already exists
 	servers := utils.GetGameServers()
 	for _, s := range servers {
-		if s == fmt.Sprintf("msmf_server_%d", *server.ID) {
+		if s == utils.GameName(*server.ID) {
 			// Delete the existing server already, something went wrong
 			// This might not be the right action to do, but will work for now
 			utils.DeleteServer(s)

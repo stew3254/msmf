@@ -1,21 +1,31 @@
 package routes
 
 import (
+	"bufio"
 	"github.com/gorilla/websocket"
+	"io"
 	"log"
 	"msmf/database"
+	"msmf/utils"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
+// Connection is a helper struct to contain both a websocket connection and console pipes
+type Connection struct {
+	Conn    *websocket.Conn
+	Console utils.Console
+}
+
+// Specify amount of data that can be read from a websocket at a time
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  2048,
 	WriteBufferSize: 2048,
 }
 
-// WSHandler accepts incoming connections // Middleware already checks for authentication before this is called
-func WSHandler(w http.ResponseWriter, r *http.Request) {
+// WsServerHandler accepts incoming connections
+func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.String(), "/")
 	// Can't error due to regex checking on route
 	serverID, _ := strconv.Atoi(parts[len(parts)-1])
@@ -49,27 +59,101 @@ func WSHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Upgrade the http connection to a websocket
-	conn, err := upgrader.Upgrade(w, r, nil)
+	// Attach the server console
+	console, err := utils.AttachServer(utils.GameName(serverID))
 	if err != nil {
-		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Tries to read messages forever
-	for {
-		messageType, p, err := conn.ReadMessage()
-		if err != nil {
-			log.Println(err)
-			return
+	// Upgrade the http connection to a websocket
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Create the connection wrapper
+	c := Connection{
+		Conn:    conn,
+		Console: console,
+	}
+
+	// Handle the console connection
+	go ServerConsole(c)
+}
+
+// ServerConsole handles communication between the websocket and the pipes
+func ServerConsole(conn Connection) {
+	outReader := bufio.NewScanner(conn.Console.Stdout)
+	errReader := bufio.NewScanner(conn.Console.Stderr)
+
+	// Allow up to 5 queued messages
+	stdoutChan := make(chan []byte, 5)
+	stderrChan := make(chan []byte, 5)
+
+	// Handle reading messages from server to send to websocket
+	outHandler := func(reader io.ReadCloser, scanner *bufio.Scanner, c chan<- []byte) {
+		for scanner.Scan() {
+			// Read in data and send to corresponding channel
+			data := scanner.Bytes()
+			log.Println(string(data))
+			c <- data
+
+			// Close if there is an error
+			if scanner.Err() != nil {
+				reader.Close()
+				return
+			}
 		}
+	}
 
-		// Prints and sends a message back
-		log.Println(string(p))
-		err = conn.WriteMessage(messageType, []byte("Message from the server!"))
+	// Make Readers
+	go outHandler(conn.Console.Stdout, outReader, stdoutChan)
+	go outHandler(conn.Console.Stderr, errReader, stderrChan)
 
+	// Handle reading messages from websocket and send them to the server
+	inHandler := func(w io.WriteCloser) {
+		for {
+			// Read message from websocket and send to the server
+			n, data, err := conn.Conn.ReadMessage()
+			// If reading fails close the pipe and return
+			if err != nil {
+				w.Close()
+				return
+			}
+
+			// If received a text message pass it on through the pipe
+			if n == websocket.TextMessage {
+				if len(data) > 0 {
+					log.Println("DEBUG", string(data))
+					n, err = w.Write(data)
+					log.Println(n)
+					// If writing fails close the pipe and return
+					if err != nil {
+						w.Close()
+						return
+					}
+				}
+			}
+		}
+	}
+
+	// Read the messages from the websocket and send to the server
+	go inHandler(conn.Console.Stdin)
+
+	// Get messages coming from the server and send them to the websocket
+	for {
+		var err error
+		select {
+		case data := <-stdoutChan:
+			err = conn.Conn.WriteMessage(websocket.TextMessage, append([]byte("1 "), data...))
+		case data := <-stderrChan:
+			err = conn.Conn.WriteMessage(websocket.TextMessage, append([]byte("2 "), data...))
+		}
+		// If there is an issue close the socket and exit
 		if err != nil {
-			log.Println(err)
+			conn.Conn.Close()
 			return
 		}
 	}
