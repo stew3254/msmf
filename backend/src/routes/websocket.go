@@ -3,19 +3,49 @@ package routes
 import (
 	"bufio"
 	"github.com/gorilla/websocket"
-	"io"
 	"log"
 	"msmf/database"
 	"msmf/utils"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 )
 
-// Connection is a helper struct to contain both a websocket connection and console pipes
-type Connection struct {
+// ConnContainer is a helper struct to contain both a websocket connection and console pipes
+type ConnContainer struct {
 	Conn    *websocket.Conn
 	Console utils.Console
+}
+
+// PipeChans is a helper struct for the SPMC
+type PipeChans struct {
+	StdoutChan chan []byte
+	StderrChan chan []byte
+}
+
+// ConnDetails is a helper struct to hold necessary communication
+// information between servers and websockets
+type ConnDetails struct {
+	// So this can be used to remove from the map later if things go wrong
+	ServerID int
+
+	// MPSC - Multiple Producer Single Consumer
+	// The channel that all producers will be writing into for stdin
+	MChan chan []byte
+
+	// SPMC - Single Producer Multiple Consumer
+	// This will connect a single instance of stdout/stderr on a server to multiple websockets
+	SPMC map[*websocket.Conn]PipeChans
+	// Lock for access to the SPMC
+	SLock *sync.Mutex
+
+	// A channel for errors so we know to shut down all go routines related and clean up
+	// The function to handle stdin will handle this channel
+	ErrChan chan error
+
+	// A place to store all of the server pipes. Guard them well because if they die the server crashes
+	Pipes utils.Console
 }
 
 // Specify amount of data that can be read from a websocket at a time
@@ -23,6 +53,12 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  2048,
 	WriteBufferSize: 2048,
 }
+
+// AttachedServers attaches the MPSC and SPMC per server
+var AttachedServers map[int]ConnDetails
+
+// WsLock is a lock for accessing the Attached Servers map
+var WsLock sync.Mutex
 
 // WsServerHandler accepts incoming connections
 func WsServerHandler(w http.ResponseWriter, r *http.Request) {
@@ -59,108 +95,214 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Attach the server console
-	console, err := utils.AttachServer(utils.GameName(serverID))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Upgrade the http connection to a websocket
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Create the connection wrapper
-	c := Connection{
-		Conn:    conn,
-		Console: console,
-	}
-
-	// Handle the console connection
-	go ServerConsole(c)
-}
-
-// ServerConsole handles communication between the websocket and the pipes
-func ServerConsole(conn Connection) {
-	// Create new buffered scanners
-	outReader := bufio.NewScanner(conn.Console.Stdout)
-	errReader := bufio.NewScanner(conn.Console.Stderr)
-
-	// Allow up to 5 queued messages
-	stdoutChan := make(chan []byte, 5)
-	stderrChan := make(chan []byte, 5)
-
-	// Handle reading messages from server to send to websocket
-	outHandler := func(reader io.ReadCloser, scanner *bufio.Scanner, c chan<- []byte) {
-		// Scan the data
-		for scanner.Scan() {
-			// Send over the data once received
-			c <- scanner.Bytes()
-
-			// Close if there is an error
-			if scanner.Err() != nil {
-				// Best effort
-				_ = reader.Close()
-				return
-			}
-		}
-	}
-
-	// Make Readers
-	go outHandler(conn.Console.Stdout, outReader, stdoutChan)
-	go outHandler(conn.Console.Stderr, errReader, stderrChan)
-
-	// Handle reading messages from websocket and send them to the server
-	inHandler := func(w io.WriteCloser) {
-		for {
-			// Read message from websocket and send to the server
-			n, data, err := conn.Conn.ReadMessage()
-			// If reading fails close the pipe and return
-			if err != nil {
-				// Best effort
-				_ = conn.Conn.Close()
-				_ = w.Close()
-				return
-			}
-
-			// If received a text message pass it on through the pipe
-			if n == websocket.TextMessage {
-				if len(data) > 0 {
-					data = append(data, byte('\n'))
-					n, err = w.Write(data)
-					// If writing fails close the pipe and return
-					if err != nil {
-						// Best effort
-						_ = conn.Conn.Close()
-						_ = w.Close()
-						return
-					}
-				}
-			}
-		}
-	}
-
-	// Read the messages from the websocket and send to the server
-	go inHandler(conn.Console.Stdin)
-
-	// Get messages coming from the server and send them to the websocket
-	for {
-		var err error
-		select {
-		case data := <-stdoutChan:
-			err = conn.Conn.WriteMessage(websocket.TextMessage, data)
-		case data := <-stderrChan:
-			// Send stderr as a binary message so you can tell them apart
-			err = conn.Conn.WriteMessage(websocket.BinaryMessage, data)
-		}
-		// If there is an issue close the socket and exit
+	// See if server console has already been attached
+	WsLock.Lock()
+	connDetails, exists := AttachedServers[serverID]
+	// If we haven't already attached a server
+	if !exists {
+		// Attach the server console
+		console, err := utils.AttachServer(utils.GameName(serverID))
 		if err != nil {
-			// Best effort
-			_ = conn.Conn.Close()
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		// Create the ConnChan struct
+		connDetails = ConnDetails{
+			MPSC:    make(map[*websocket.Conn]bool),
+			MLock:   &sync.Mutex{},
+			MChan:   make(chan []byte, 5), // Take up to 5 messages before blocking
+			SPMC:    make(map[*websocket.Conn]PipeChans),
+			SLock:   &sync.Mutex{},
+			ErrChan: make(chan error, 1),
+			Pipes:   console,
+		}
+
+		// Add it into the map
+		AttachedServers[serverID] = connDetails
+
+		// Upgrade the http connection to a websocket
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Create the connection container
+		c := ConnContainer{
+			Conn:    conn,
+			Console: console,
+		}
+
+		// Set up the framework for now handling the attachment of the server pipes to go channels
+		ServerConsole(connDetails, c)
+
+		// Don't unlock until the end so that no race conditions can occur
+		// Could be smart and probably make this critical section smaller,
+		// but that's hard and extra work
+		WsLock.Unlock()
+	} else {
+
 	}
+
 }
+
+// ServerConsole handles communication between the websocket and the channels
+func ServerConsole(connDetails ConnDetails, c ConnContainer) {
+	go func(connDetails ConnDetails, c ConnContainer) {
+		// Create a buffered writer for stdin
+		inWriter := bufio.NewWriter(c.Console.Stdin)
+
+		// Forever write into stdin
+		for {
+			select {
+			// If data received from a producer, send it into stdin
+			case data := <-connDetails.MChan:
+				_, err := inWriter.Write(data)
+				if err != nil {
+					log.Println("stdin error:", err)
+					// Send the error to the error handler
+					connDetails.ErrChan <- err
+				}
+			// Handle errors received from any of the pipes by closing all of them anc cleaning up
+			// TODO see if we can recover from these
+			case _ = <-connDetails.ErrChan:
+				// Best effort to try to close the pipes, could already be closed
+				_ = c.Console.Stdin.Close()
+				_ = c.Console.Stdout.Close()
+				_ = c.Console.Stderr.Close()
+
+				// Best effort to try to close the websocket, could already be closed
+				_ = c.Conn.Close()
+
+				// Delete this server from the servers attached. Since these pipes died, the server
+				// is now down. If anything was previously attached, it's dead now anyways
+				WsLock.Lock()
+				// If nothing is in the map already it doesn't do anything
+				delete(AttachedServers, connDetails.ServerID)
+				WsLock.Unlock()
+				// We are done, kill this function
+				return
+			}
+		}
+	}(connDetails, c)
+
+	// Create scanners for stdout and stderr
+	outReader := bufio.NewScanner(c.Console.Stdout)
+	errReader := bufio.NewScanner(c.Console.Stderr)
+
+	// Take in the scanner, connDetails to send stuff to and the corresponding lock
+	read := func(scanner *bufio.Scanner, connDetails ConnDetails, isStdout bool) {
+		// Repeatedly scan for more data
+		for scanner.Scan() {
+			// Read in the data from the scanner
+			data := scanner.Bytes()
+			if err := scanner.Err(); err != nil {
+				if isStdout {
+					log.Println("stdout err:", err)
+				} else {
+					log.Println("stderr err:", err)
+				}
+				// Send over the error which will handle closing pipes
+				connDetails.ErrChan <- err
+				return
+			}
+
+			// Only one producer can do this at a time
+			// This ensures everyone gets their messages in the same order
+			connDetails.SLock.Lock()
+			// Look through the whole map and send the data on all of the corresponding channels
+			for _, pipes := range connDetails.SPMC {
+				if isStdout {
+					pipes.StdoutChan <- data
+				} else {
+					pipes.StderrChan <- data
+				}
+			}
+			connDetails.SLock.Unlock()
+		}
+	}
+
+	// Run readers for stdout and stderr
+	go read(outReader, connDetails, true)
+	go read(errReader, connDetails, false)
+}
+
+// func ServerConsole(conn ConnContainer) {
+// 	// Create new buffered scanners
+// 	outReader := bufio.NewScanner(conn.Console.Stdout)
+// 	errReader := bufio.NewScanner(conn.Console.Stderr)
+//
+// 	// Allow up to 5 queued messages
+// 	stdoutChan := make(chan []byte, 5)
+// 	stderrChan := make(chan []byte, 5)
+//
+// 	// Handle reading messages from server to send to websocket
+// 	outHandler := func(reader io.ReadCloser, scanner *bufio.Scanner, c chan<- []byte) {
+// 		// Scan the data
+// 		for scanner.Scan() {
+// 			// Send over the data once received
+// 			c <- scanner.Bytes()
+//
+// 			// Close if there is an error
+// 			if scanner.Err() != nil {
+// 				// Best effort
+// 				_ = reader.Close()
+// 				return
+// 			}
+// 		}
+// 	}
+//
+// 	// Make Readers
+// 	go outHandler(conn.Console.Stdout, outReader, stdoutChan)
+// 	go outHandler(conn.Console.Stderr, errReader, stderrChan)
+//
+// 	// Handle reading messages from websocket and send them to the server
+// 	inHandler := func(w io.WriteCloser) {
+// 		for {
+// 			// Read message from websocket and send to the server
+// 			n, data, err := conn.Conn.ReadMessage()
+// 			// If reading fails close the pipe and return
+// 			if err != nil {
+// 				// Best effort
+// 				_ = conn.Conn.Close()
+// 				return
+// 			}
+//
+// 			// If received a text message pass it on through the pipe
+// 			if n == websocket.TextMessage {
+// 				if len(data) > 0 {
+// 					data = append(data, byte('\n'))
+// 					n, err = w.Write(data)
+// 					// If writing fails close the pipe and return
+// 					if err != nil {
+// 						// Best effort
+// 						_ = conn.Conn.Close()
+// 						return
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+//
+// 	// Read the messages from the websocket and send to the server
+// 	go inHandler(conn.Console.Stdin)
+//
+// 	// Get messages coming from the server and send them to the websocket
+// 	for {
+// 		var err error
+// 		select {
+// 		case data := <-stdoutChan:
+// 			err = conn.Conn.WriteMessage(websocket.TextMessage, data)
+// 		case data := <-stderrChan:
+// 			// Send stderr as a binary message so you can tell them apart
+// 			err = conn.Conn.WriteMessage(websocket.BinaryMessage, data)
+// 		}
+// 		// If there is an issue close the socket and exit
+// 		if err != nil {
+// 			// Best effort
+// 			_ = conn.Conn.Close()
+// 			return
+// 		}
+// 	}
+// }
