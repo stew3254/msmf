@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -116,6 +117,19 @@ func StartServer(name string) (err error) {
 
 // AttachServer attaches to the docker container and returns its pipes
 func AttachServer(name string) (console Console, err error) {
+	// See if the server is running
+	running := false
+	servers := GetGameServers(true)
+	for _, server := range servers {
+		if server == name {
+			running = true
+		}
+	}
+	if !running {
+		return Console{}, errors.New("cannot attach to a server that isn't running")
+	}
+
+	// Try to attach to the server
 	var cmdSlice []string
 	cmdSlice = append([]string{
 		"docker",
