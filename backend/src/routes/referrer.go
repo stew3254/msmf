@@ -163,6 +163,7 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 		Password:   hash,
 		ReferredBy: referrer.UserID,
 	})
+
 	// Owner already exists
 	if result.Error != nil {
 		utils.ErrorJSON(w, http.StatusBadRequest, result.Error.Error())
