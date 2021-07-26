@@ -2,6 +2,7 @@ package routes
 
 import (
 	"encoding/json"
+	"gorm.io/gorm/clause"
 	"msmf/database"
 	"msmf/games"
 	"msmf/utils"
@@ -59,7 +60,7 @@ func getServer(url string) (serverID int) {
 
 func CreateServer(w http.ResponseWriter, r *http.Request) {
 	// Check perms and bail if the perms aren't good
-	if !checkPerms(w, r, "create_server", true) {
+	if !checkPerms(w, r, "create_server", false) {
 		return
 	}
 
@@ -119,8 +120,9 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 	database.DB.Where("users.token = ?", token).First(&user)
 
 	// See if name has already been used by this user before
-	err = database.DB.Table("servers").Where("servers.user_id = ? AND servers.name = ?", user.ID,
-		name).Count(&count).Error
+	err = database.DB.Table("servers").Where(
+		"servers.owner_id = ? AND servers.name = ?",
+		user.ID, name).Count(&count).Error
 	if count > 0 {
 		utils.ErrorJSON(w, http.StatusBadRequest, "Refuse to add server with same name")
 		return
@@ -163,7 +165,7 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 		Port:    port,
 		Name:    name,
 		Game:    game,
-		User:    user,
+		Owner:   user,
 		Version: version,
 	}
 	database.DB.Create(&server)
@@ -207,7 +209,67 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetServer(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
+	// Get user token
+	tokenCookie, _ := r.Cookie("token")
+	token := tokenCookie.Value
+	// Get server ID
+	serverID := getServer(r.URL.String())
+
+	// See if they are the server owner
+	var count int64
+	database.DB.Joins(
+		"INNER JOIN users ON servers.owner_id = users.id",
+	).Where("users.token = ? AND servers.id = ?", token, serverID).Count(&count)
+	// They are not the owner or server doesn't exist
+	if count == 0 {
+		// See if this user has any server level permissions to be able to view this server
+		err := database.DB.Table("servers s").Joins(
+			"INNER JOIN server_perms_per_users sppu ON s.id = sppu.server_id",
+		).Joins(
+			"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
+		).Joins(
+			"INNER JOIN users u ON sppu.user_id = u.id",
+		).Where(
+			"u.token = ? AND s.id = ?", token, serverID,
+		).Count(&count).Error
+
+		if err != nil {
+			utils.ErrorJSON(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+		// They don't have a single relevant permission for the server
+		if count == 0 {
+			// See if this user has any user level permissions to be able to view this server
+			err = database.DB.Table("users u").Joins(
+				"INNER JOIN perms_per_users ppu ON u.id = ppu.user_id",
+			).Joins(
+				"INNER JOIN user_perms up ON ppu.user_perm_id = up.id",
+			).Where("u.token = ? AND ("+
+				"up.name = 'administrator' OR "+
+				"up.name = 'manage_server_permission' OR "+
+				"up.name = 'delete_server'"+
+				")", token).Count(&count).Error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusNotFound, err.Error())
+				return
+			} else if count == 0 {
+				// There are no relevant user level permissions
+				utils.ErrorJSON(w, http.StatusNotFound, "Server does not exist")
+				return
+			}
+		}
+	}
+
+	var server database.Server
+	database.DB.Preload(clause.Associations).Where("servers.id = ?", serverID).Find(&server)
+	if server.ID == nil {
+		utils.ErrorJSON(w, http.StatusNotFound, "Server does not exist")
+		return
+	}
+
+	// Write out the server data
+	_, _ = w.Write(utils.ToJSON(&server))
 }
 
 func UpdateServer(w http.ResponseWriter, r *http.Request) {
@@ -233,6 +295,7 @@ func DeleteServer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
 	// Delete the server
 	utils.DeleteServer(utils.GameName(getServer(r.URL.String())))
 

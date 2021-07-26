@@ -74,7 +74,7 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 		SearchCol:   "token",
 		SearchTable: "users",
 	})
-	// User doesn't have correct perms
+	// Owner doesn't have correct perms
 	if !hasPerms {
 		utils.ErrorJSON(w, http.StatusUnauthorized, "Unauthorized")
 		return
@@ -121,7 +121,7 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 
 	// Grab the user and referral code
 	referrer := database.Referrer{}
-	result := database.DB.Preload("User").First(&referrer, code)
+	result := database.DB.Preload("Owner").First(&referrer, code)
 	if result.Error != nil {
 		utils.ErrorJSON(w, http.StatusNotFound, "Not Found")
 		return
@@ -167,7 +167,7 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 		Password:   hash,
 		ReferredBy: referrer.UserID,
 	})
-	// User already exists
+	// Owner already exists
 	if result.Error != nil {
 		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
 		return

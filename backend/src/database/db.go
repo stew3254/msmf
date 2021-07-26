@@ -93,7 +93,7 @@ func ConnectDB(dbType string) error {
 
 // createPerms creates all server perms
 func createPerms() {
-	// User Permissions
+	// Owner Permissions
 	userPerms := []UserPerm{
 		{
 			Name:        "administrator",

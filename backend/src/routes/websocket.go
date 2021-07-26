@@ -89,7 +89,7 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 			"name = 'view_logs' OR p.name = 'manage_server_console')", token, serverID,
 	).Count(&count).Error
 
-	// User does not have permissions to view this server
+	// Owner does not have permissions to view this server
 	if err != nil || count == 0 {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
