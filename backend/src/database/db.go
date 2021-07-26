@@ -240,6 +240,7 @@ func MakeDB() {
 		&Version{},
 		&Mod{},
 		&Server{},
+		&DiscordIntegration{},
 		&ServerPerm{},
 		&User{},
 		&UserPerm{},
@@ -275,6 +276,7 @@ func DropTables() {
 	DB.Migrator().DropTable(&PlayerLog{})
 	DB.Migrator().DropTable(&WebLog{})
 	DB.Migrator().DropTable(&ServerPerm{})
+	DB.Migrator().DropTable(&DiscordIntegration{})
 	DB.Migrator().DropTable(&Server{})
 	DB.Migrator().DropTable(&Referrer{})
 	DB.Migrator().DropTable(&UserPerm{})

@@ -39,7 +39,7 @@ func GetReferrals(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write out the body
-	_, _ = w.Write(utils.ToJSON(&resp))
+	utils.WriteJSON(w, http.StatusOK, &resp)
 }
 
 // CreateReferral makes a new referral link
@@ -100,7 +100,7 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write out the body
-	_, _ = w.Write(utils.ToJSON(resp))
+	utils.WriteJSON(w, http.StatusOK, &resp)
 }
 
 // Refer allows users with proper permissions to send someone an invite code
@@ -174,5 +174,6 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 	database.DB.Delete(&referrer)
 	resp["status"] = "Success"
 
-	_, _ = w.Write(utils.ToJSON(resp))
+	// Write out the body
+	utils.WriteJSON(w, http.StatusOK, &resp)
 }

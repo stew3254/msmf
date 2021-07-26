@@ -52,9 +52,13 @@ func checkPerms(w http.ResponseWriter, r *http.Request, perm string, isServerPer
 
 // Gets a server id from the url
 func getServer(url string) (serverID int) {
-	parts := strings.SplitN(url, "/", 5)
-	// We know the server id will always be this part of the url
-	serverID, _ = strconv.Atoi(parts[3])
+	parts := strings.SplitN(url, "/", 6)
+	// This will work on /api/servers/{id}
+	serverID, err := strconv.Atoi(parts[3])
+	if err != nil {
+		// This will work on /api/<something>/servers/{id}
+		serverID, _ = strconv.Atoi(parts[4])
+	}
 	return serverID
 }
 
@@ -159,7 +163,7 @@ func runServer(w http.ResponseWriter, r *http.Request, action string) {
 	// Write out response
 	resp := make(map[string]string)
 	resp["status"] = "Success"
-	_, _ = w.Write(utils.ToJSON(&resp))
+	utils.WriteJSON(w, http.StatusOK, &resp)
 }
 
 func CreateServer(w http.ResponseWriter, r *http.Request) {
@@ -249,8 +253,6 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 		).First(&version).Error
 		if err != nil {
 			// Add the version to the db
-			// No error checking on Minecraft versions for now.
-			// If you add something stupid that breaks things, it's your own fault
 			version = database.Version{
 				Tag:  versionName,
 				Game: game,
@@ -305,7 +307,7 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 	// Write out response
 	resp := make(map[string]string)
 	resp["status"] = "Success"
-	_, _ = w.Write(utils.ToJSON(&resp))
+	utils.WriteJSON(w, http.StatusOK, &resp)
 }
 
 func GetServers(w http.ResponseWriter, r *http.Request) {
@@ -384,7 +386,7 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write out the servers
-	_, _ = w.Write(utils.ToJSON(&servers))
+	utils.WriteJSON(w, http.StatusOK, &servers)
 }
 
 func GetServer(w http.ResponseWriter, r *http.Request) {
@@ -416,7 +418,7 @@ func GetServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write out the server data
-	_, _ = w.Write(utils.ToJSON(&server))
+	utils.WriteJSON(w, http.StatusOK, &server)
 }
 
 func UpdateServer(w http.ResponseWriter, r *http.Request) {
@@ -468,7 +470,7 @@ func UpdateServer(w http.ResponseWriter, r *http.Request) {
 	database.DB.Save(&server)
 
 	// Write out the new updated server data
-	_, _ = w.Write(utils.ToJSON(&server))
+	utils.WriteJSON(w, http.StatusOK, &server)
 }
 
 func DeleteServer(w http.ResponseWriter, r *http.Request) {
@@ -500,7 +502,7 @@ func DeleteServer(w http.ResponseWriter, r *http.Request) {
 	// Write out response
 	resp := make(map[string]string)
 	resp["status"] = "Success"
-	_, _ = w.Write(utils.ToJSON(&resp))
+	utils.WriteJSON(w, http.StatusOK, &resp)
 }
 
 // StartServer starts the server

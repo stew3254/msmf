@@ -31,12 +31,24 @@ type Mod struct {
 	Version   Version `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL" json:"version"`
 }
 
+// DiscordIntegration Model
+type DiscordIntegration struct {
+	ID         *int   `gorm:"primaryKey; type:serial" json:"-"`
+	Type       string `gorm:"type: varchar(64)" json:"type"`
+	DiscordURL string `gorm:"type: text" json:"discord_url"`
+	Username   string `gorm:"type: varchar(64)" json:"username"`
+	AvatarURL  string `gorm:"type: text" json:"avatar_url"`
+	Active     bool   `gorm:"not null; type: bool" json:"active"`
+	ServerID   *int   `gorm:"index:server_integration,unique" json:"-"`
+	Server     Server `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL" json:"server"`
+}
+
 // Server Model
 type Server struct {
 	ID        *int    `gorm:"primaryKey; type:serial" json:"id"`
 	Port      uint16  `gorm:"not null; unique; check: Port < 65536; check: Port > 0" json:"port"`
 	Name      string  `gorm:"type: varchar(64)" json:"name"`
-	Running   bool    `gorm:"type: bool" json:"running"`
+	Running   bool    `gorm:"not null; type: bool" json:"running"`
 	GameID    *int    `gorm:"not null" json:"-"`
 	Game      Game    `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE" json:"game"`
 	OwnerID   *int    `gorm:"not null" json:"-"`

@@ -50,5 +50,7 @@ func GetPerms(w http.ResponseWriter, r *http.Request) {
 		}
 		resp["permissions"] = permissions
 	}
-	w.Write(utils.ToJSON(resp))
+
+	// Write out the response
+	utils.WriteJSON(w, http.StatusOK, &resp)
 }
