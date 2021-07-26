@@ -1,0 +1,11 @@
+FROM node:16
+
+WORKDIR /app
+
+RUN npm add -g pnpm
+
+# COPY package.json pnpm-lock.yaml ./
+COPY package.json ./
+RUN pnpm install
+
+ENTRYPOINT ["pnpm", "run", "watch"]

@@ -1,0 +1,45 @@
+version: '3.1'
+
+services:
+  db:
+    image: postgres:alpine
+    container_name: msmf_db
+    env_file: .env
+    ports:
+      - 5432:5432
+  web:
+    build:
+      context: backend
+      dockerfile: Dockerfile.dev
+    container_name: msmf_dev
+    env_file: .env
+    ports:
+      - 8080:3000
+    depends_on:
+      - db
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./backend/src:/srv/website/src:ro
+      - ./certs:/srv/website/certs:ro
+      - static:/srv/website/static
+  #  pgadmin:
+  #    image: "dpage/pgadmin4"
+  #    container_name: "msmf_pgadmin"
+  #    env_file: .env
+  #    ports:
+  #      - "5050:80"
+  #    depends_on:
+  #      - db
+  parcel:
+    container_name: msmf_parcel
+    build:
+      context: frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend/src:/app/src:ro
+      - static:/app/dist
+    environment:
+      - CHOKIDAR_USEPOLLING=1
+
+volumes:
+  static:

@@ -1,0 +1,5 @@
+certs/
+
+.idea*
+.env
+!.env-template
