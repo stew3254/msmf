@@ -32,18 +32,14 @@ func GetReferrals(w http.ResponseWriter, r *http.Request) {
 		// Populate the referrers
 		for rows.Next() {
 			row := make(map[string]interface{})
-			database.DB.ScanRows(rows, &row)
+			_ = database.DB.ScanRows(rows, &row)
 			referrals = append(referrals, row)
 		}
 		resp["referrers"] = referrals
 	}
 
 	// Write out the body
-	out, err := json.Marshal(resp)
-	if err != nil {
-		log.Println(err)
-	}
-	w.Write(out)
+	_, _ = w.Write(utils.ToJSON(&resp))
 }
 
 // CreateReferral makes a new referral link
@@ -104,7 +100,7 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write out the body
-	w.Write(utils.ToJSON(resp))
+	_, _ = w.Write(utils.ToJSON(resp))
 }
 
 // Refer allows users with proper permissions to send someone an invite code
@@ -134,10 +130,10 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == "GET" {
 		resp["username"] = referrer.User.Username
 		resp["expiration"] = referrer.Expiration
-		// Must be Method PUT
+		// Must be Method POST
 	}
 
-	// Get JSON of body of PUT
+	// Get JSON of body of POST
 	body := make(map[string]string)
 	err := json.NewDecoder(r.Body).Decode(&body)
 
@@ -169,7 +165,7 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 	})
 	// Owner already exists
 	if result.Error != nil {
-		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
+		utils.ErrorJSON(w, http.StatusBadRequest, result.Error.Error())
 		return
 	}
 
@@ -177,5 +173,5 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 	database.DB.Delete(&referrer)
 	resp["status"] = "Success"
 
-	w.Write(utils.ToJSON(resp))
+	_, _ = w.Write(utils.ToJSON(resp))
 }

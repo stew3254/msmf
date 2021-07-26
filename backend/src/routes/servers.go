@@ -109,6 +109,48 @@ func canViewServer(serverID int, token string) (bool, error) {
 	return true, nil
 }
 
+// Helper function to change running state
+func runServer(w http.ResponseWriter, r *http.Request, action string) {
+	// Check perms and bail if the perms aren't good
+	if !checkPerms(w, r, "restart", true) {
+		return
+	}
+	var err error
+	if action == "start" {
+		err = utils.StartServer(utils.GameName(getServer(r.URL.String())))
+	} else if action == "stop" {
+		err = utils.StopServer(utils.GameName(getServer(r.URL.String())))
+	} else {
+		// Ignore the first since if there was a problem the second would catch it anyways
+		_ = utils.StopServer(utils.GameName(getServer(r.URL.String())))
+		err = utils.StartServer(utils.GameName(getServer(r.URL.String())))
+	}
+
+	if err != nil {
+		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Get server id
+	serverID := getServer(r.URL.String())
+
+	// Update the running status in the db
+	if action == "stop" {
+		database.DB.Model(&database.Server{}).Where(
+			"servers.id = ?", serverID,
+		).Update("running", false)
+	} else {
+		database.DB.Model(&database.Server{}).Where(
+			"servers.id = ?", serverID,
+		).Update("running", true)
+	}
+
+	// Write out response
+	resp := make(map[string]string)
+	resp["status"] = "Success"
+	_, _ = w.Write(utils.ToJSON(&resp))
+}
+
 func CreateServer(w http.ResponseWriter, r *http.Request) {
 	// Check perms and bail if the perms aren't good
 	if !checkPerms(w, r, "create_server", false) {
@@ -373,73 +415,16 @@ func DeleteServer(w http.ResponseWriter, r *http.Request) {
 }
 
 // StartServer starts the server
-// TODO check for errors if people touch docker when they aren't supposed to
 func StartServer(w http.ResponseWriter, r *http.Request) {
-	// Check perms and bail if the perms aren't good
-	if !checkPerms(w, r, "restart", true) {
-		return
-	}
-	err := utils.StartServer(utils.GameName(getServer(r.URL.String())))
-	if err != nil {
-		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// Get server id
-	serverID := getServer(r.URL.String())
-
-	// Update the running status in the db
-	database.DB.Model(&database.Server{}).Where(
-		"servers.id = ?", serverID,
-	).Update("running", true)
-
-	// Write out response
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	_, _ = w.Write(utils.ToJSON(&resp))
+	runServer(w, r, "start")
 }
 
 // StopServer stops the server
-// TODO check for errors if people touch docker when they aren't supposed to
 func StopServer(w http.ResponseWriter, r *http.Request) {
-	// Check perms and bail if the perms aren't good
-	if !checkPerms(w, r, "restart", true) {
-		return
-	}
-	err := utils.StopServer(utils.GameName(getServer(r.URL.String())))
-	if err != nil {
-		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// Get server id
-	serverID := getServer(r.URL.String())
-
-	// Update the running status in the db
-	database.DB.Model(&database.Server{}).Where(
-		"servers.id = ?", serverID,
-	).Update("running", false)
-
-	// Write out response
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	_, _ = w.Write(utils.ToJSON(&resp))
+	runServer(w, r, "stop")
 }
 
 // RestartServer restarts the server
-// TODO check for errors if people touch docker when they aren't supposed to
 func RestartServer(w http.ResponseWriter, r *http.Request) {
-	// Check perms and bail if the perms aren't good
-	if !checkPerms(w, r, "restart", true) {
-		return
-	}
-	_ = utils.StopServer(utils.GameName(getServer(r.URL.String())))
-	_ = utils.StartServer(utils.GameName(getServer(r.URL.String())))
-
-	// Write out response
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	_, _ = w.Write(utils.ToJSON(&resp))
-	return
-
+	runServer(w, r, "restart")
 }

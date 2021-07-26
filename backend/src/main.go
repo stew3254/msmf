@@ -48,9 +48,10 @@ func main() {
 
 	// Handlers
 	// Not working?
-	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Oof, bad place"))
-	})
+	// router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 	_, _ = w.Write([]byte("Oof, bad place"))
+	// })
+
 	// Handle logins
 	router.HandleFunc("/login", routes.Login).Methods("POST")
 	// Handle changing password
@@ -58,6 +59,7 @@ func main() {
 
 	// Handle API calls
 	api := router.PathPrefix("/api").Subrouter()
+
 	// Handle calls to create servers
 	api.HandleFunc("/server", routes.CreateServer).Methods("POST")
 	// Handle calls to list servers
@@ -69,18 +71,18 @@ func main() {
 	// Handle calls to delete servers
 	api.HandleFunc("/server/{id:[0-9]+}", routes.DeleteServer).Methods("DELETE")
 	// Handle calls to start a server
-	api.HandleFunc("/server/{id:[0-9]+}/start", routes.StartServer).Methods("GET")
+	api.HandleFunc("/server/{id:[0-9]+}/start", routes.StartServer).Methods("POST")
 	// Handle calls to stop a server
-	api.HandleFunc("/server/{id:[0-9]+}/stop", routes.StopServer).Methods("GET")
+	api.HandleFunc("/server/{id:[0-9]+}/stop", routes.StopServer).Methods("POST")
 	// Handle calls to restart a server
-	api.HandleFunc("/server/{id:[0-9]+}/restart", routes.RestartServer).Methods("GET")
+	api.HandleFunc("/server/{id:[0-9]+}/restart", routes.RestartServer).Methods("POST")
 
 	// Handle websocket connections for server consoles
 	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WsServerHandler)
 
 	// Get existing referral codes
 	api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
-	// Creating new referral codes
+	// Create new referral codes
 	api.HandleFunc("/refer/new", routes.CreateReferral).Methods("GET")
 	// Handle referral code
 	api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "POST")
@@ -127,7 +129,7 @@ func main() {
 	}
 
 	// Start server
-	log.Println("Web server is now listening")
+	log.Println("Web server is now listening for connections")
 	if ssl {
 		log.Fatal(srv.ListenAndServeTLS("certs/cert.crt", "certs/key.pem"))
 	} else {
