@@ -104,6 +104,9 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 		// Attach the server console
 		console, err := utils.AttachServer(utils.GameName(serverID))
 		if err != nil {
+			// Don't forget to unlock
+			WsLock.Unlock()
+
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -162,6 +165,29 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 	connDetails.SLock.Unlock()
 
 	// Now that the server is attached and handlers are running, link websocket
+
+	writeToSocket := func(conn *websocket.Conn, pipes PipeChans) {
+		var err error
+		// Constantly read messages
+		for {
+			select {
+			// If stdout send as message type 1
+			case data := <-pipes.StdoutChan:
+				err = conn.WriteMessage(websocket.TextMessage, data)
+			// If stderr send as message type 2
+			case data := <-pipes.StderrChan:
+				err = conn.WriteMessage(websocket.BinaryMessage, data)
+			}
+			// Reader already takes care of closing the websocket
+			if err != nil {
+				log.Println("websocket err:", err)
+				// Kill this function
+				return
+			}
+		}
+	}
+
+	go writeToSocket(conn, pipes)
 	// Read in data from the websocket to send to stdin
 	readFromSocket := func(conn *websocket.Conn, connDetails *ConnDetails) {
 		// Forever try to read in messages
@@ -195,30 +221,6 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeToSocket := func(conn *websocket.Conn, pipes PipeChans) {
-		var err error
-		// Constantly read messages
-		for {
-			select {
-			// If stdout send as message type 1
-			case data := <-pipes.StdoutChan:
-				err = conn.WriteMessage(websocket.TextMessage, data)
-			// If stderr send as message type 2
-			case data := <-pipes.StderrChan:
-				err = conn.WriteMessage(websocket.BinaryMessage, data)
-			}
-			// Reader already takes care of closing the websocket
-			if err != nil {
-				log.Println("websocket err:", err)
-				// Kill this function
-				return
-			}
-		}
-	}
-
-	go writeToSocket(conn, pipes)
-
-	// Finally read from socket
 	readFromSocket(conn, connDetails)
 }
 

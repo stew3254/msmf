@@ -25,13 +25,16 @@ func ErrorJSON(w http.ResponseWriter, status int, err string) {
 	w.WriteHeader(status)
 	resp := make(map[string]interface{})
 	resp["error"] = err
-	w.Write(ToJSON(resp))
+	_, _ = w.Write(ToJSON(resp))
 }
 
 // GenerateToken returns a token representing a logged in user
 func GenerateToken() (string, time.Time) {
 	b := make([]byte, 32)
-	rand.Read(b)
+	_, err := rand.Read(b)
+	if err != nil {
+		log.Println(err)
+	}
 	return fmt.Sprintf("%x", b), time.Now().Add(time.Hour)
 }
 

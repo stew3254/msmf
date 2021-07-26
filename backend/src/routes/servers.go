@@ -6,35 +6,71 @@ import (
 	"msmf/games"
 	"msmf/utils"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
-func CreateServer(w http.ResponseWriter, r *http.Request) {
+// Helper function to check permissions of a user
+func checkPerms(w http.ResponseWriter, r *http.Request, perm string, isServerPerm bool) bool {
 	// Get user token
 	tokenCookie, err := r.Cookie("token")
 	if err != nil {
 		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
+		return false
 	}
 	token := tokenCookie.Value
 
 	// See if user has permission to create servers
-	hasPerms := utils.CheckPermissions(&utils.PermCheck{
-		FKTable:     "perms_per_users",
-		Perms:       "create_server",
-		PermTable:   "user_perms",
-		Search:      token,
-		SearchCol:   "token",
-		SearchTable: "users",
-	})
+	var hasPerms bool
+	if isServerPerm {
+		hasPerms = utils.CheckPermissions(&utils.PermCheck{
+			FKTable:     "server_perms_per_users",
+			Perms:       perm,
+			PermTable:   "server_perms",
+			Search:      token,
+			SearchCol:   "token",
+			SearchTable: "users",
+		})
+	} else {
+		hasPerms = utils.CheckPermissions(&utils.PermCheck{
+			FKTable:     "perms_per_users",
+			Perms:       perm,
+			PermTable:   "user_perms",
+			Search:      token,
+			SearchCol:   "token",
+			SearchTable: "users",
+		})
+	}
 	if !hasPerms {
 		http.Error(w, "Forbidden", http.StatusForbidden)
+		return false
+	}
+
+	return true
+}
+
+//
+func getServer(url string) (serverID int) {
+	parts := strings.SplitN(url, "/", 5)
+	// We know the server id will always be this part of the url
+	serverID, _ = strconv.Atoi(parts[3])
+	return serverID
+}
+
+func CreateServer(w http.ResponseWriter, r *http.Request) {
+	// Check perms and bail if the perms aren't good
+	if !checkPerms(w, r, "create_server", true) {
 		return
 	}
+
+	// Get user token
+	tokenCookie, _ := r.Cookie("token")
+	token := tokenCookie.Value
 
 	// TODO write better json decoder
 	// Get put data
 	body := make(map[string]interface{})
-	err = json.NewDecoder(r.Body).Decode(&body)
+	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
@@ -163,21 +199,93 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 	// Write out response
 	resp := make(map[string]string)
 	resp["status"] = "Success"
-	w.Write(utils.ToJSON(&resp))
+	_, _ = w.Write(utils.ToJSON(&resp))
 }
 
 func GetServers(w http.ResponseWriter, r *http.Request) {
-
+	http.Error(w, "Not implemented", http.StatusNotImplemented)
 }
 
-func ServerHandler(w http.ResponseWriter, r *http.Request) {
-
+func GetServer(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "Not implemented", http.StatusNotImplemented)
 }
 
 func UpdateServer(w http.ResponseWriter, r *http.Request) {
-
+	http.Error(w, "Not implemented", http.StatusNotImplemented)
 }
 
 func DeleteServer(w http.ResponseWriter, r *http.Request) {
+	// Get user token
+	tokenCookie, _ := r.Cookie("token")
+	token := tokenCookie.Value
+	// Get server ID
+	serverID := getServer(r.URL.String())
+
+	// See if they are the server owner
+	var count int64
+	database.DB.Joins(
+		"INNER JOIN users ON servers.owner_id = users.id",
+	).Where("users.token = ? AND servers.id = ?", token, serverID).Count(&count)
+	// They are not the owner
+	if count == 0 {
+		// Check perms and bail if the perms aren't good
+		if !checkPerms(w, r, "delete_server", false) {
+			return
+		}
+	}
+	// Delete the server
+	utils.DeleteServer(utils.GameName(getServer(r.URL.String())))
+
+	// Write out response
+	resp := make(map[string]string)
+	resp["status"] = "Success"
+	_, _ = w.Write(utils.ToJSON(&resp))
+}
+
+// StartServer starts the server
+// TODO check for errors if people touch docker when they aren't supposed to
+func StartServer(w http.ResponseWriter, r *http.Request) {
+	// Check perms and bail if the perms aren't good
+	if !checkPerms(w, r, "restart", true) {
+		return
+	}
+	_ = utils.StartServer(utils.GameName(getServer(r.URL.String())))
+
+	// Write out response
+	resp := make(map[string]string)
+	resp["status"] = "Success"
+	_, _ = w.Write(utils.ToJSON(&resp))
+}
+
+// StopServer stops the server
+// TODO check for errors if people touch docker when they aren't supposed to
+func StopServer(w http.ResponseWriter, r *http.Request) {
+	// Check perms and bail if the perms aren't good
+	if !checkPerms(w, r, "restart", true) {
+		return
+	}
+	_ = utils.StopServer(utils.GameName(getServer(r.URL.String())))
+
+	// Write out response
+	resp := make(map[string]string)
+	resp["status"] = "Success"
+	_, _ = w.Write(utils.ToJSON(&resp))
+}
+
+// RestartServer restarts the server
+// TODO check for errors if people touch docker when they aren't supposed to
+func RestartServer(w http.ResponseWriter, r *http.Request) {
+	// Check perms and bail if the perms aren't good
+	if !checkPerms(w, r, "restart", true) {
+		return
+	}
+	_ = utils.StopServer(utils.GameName(getServer(r.URL.String())))
+	_ = utils.StartServer(utils.GameName(getServer(r.URL.String())))
+
+	// Write out response
+	resp := make(map[string]string)
+	resp["status"] = "Success"
+	_, _ = w.Write(utils.ToJSON(&resp))
+	return
 
 }

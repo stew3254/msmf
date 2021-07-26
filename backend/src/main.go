@@ -46,11 +46,17 @@ func main() {
 	// Handle calls to list servers
 	api.HandleFunc("/server", routes.GetServers).Methods("GET")
 	// Handle calls to view a server
-	api.HandleFunc("/server/{id:[0-9]+}", routes.ServerHandler).Methods("GET")
+	api.HandleFunc("/server/{id:[0-9]+}", routes.GetServer).Methods("GET")
 	// Handle calls to update a server
 	api.HandleFunc("/server/{id:[0-9]+}", routes.UpdateServer).Methods("PATCH")
 	// Handle calls to delete servers
 	api.HandleFunc("/server/{id:[0-9]+}", routes.DeleteServer).Methods("DELETE")
+	// Handle calls to start a server
+	api.HandleFunc("/server/{id:[0-9]+}/start", routes.StartServer).Methods("GET")
+	// Handle calls to stop a server
+	api.HandleFunc("/server/{id:[0-9]+}/stop", routes.StopServer).Methods("GET")
+	// Handle calls to restart a server
+	api.HandleFunc("/server/{id:[0-9]+}/restart", routes.RestartServer).Methods("GET")
 
 	// Handle websocket connections for server consoles
 	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WsServerHandler)

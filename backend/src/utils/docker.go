@@ -102,16 +102,19 @@ func DeleteServer(name string) {
 
 // StartServer starts the docker container
 func StartServer(name string) (err error) {
-	var cmdSlice []string
-	cmdSlice = append([]string{
-		"docker",
-		"start",
-		name,
-	})
-	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
+	cmd := exec.Command("docker", "start", name)
 
 	// Start the server
-	err = cmd.Start()
+	err = cmd.Run()
+	return err
+}
+
+// StopServer stops the docker container
+func StopServer(name string) (err error) {
+	cmd := exec.Command("docker", "stop", name)
+
+	// Start the server
+	err = cmd.Run()
 	return err
 }
 
