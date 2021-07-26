@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"msmf/utils"
 	"net/http"
 	"os"
 	"time"
@@ -24,7 +25,23 @@ func main() {
 	// database.DropTables()
 
 	// Create all of the tables with constraints and add all necessary starting information
+	// if it doesn't already exist
 	database.MakeDB()
+
+	// If servers were running when msmf stopped, start them up again
+	var servers []database.Server
+	database.DB.Where("servers.running = ?", true).Find(&servers)
+	for _, server := range servers {
+		// Run them as goroutines so the serer start up is faster
+		go func(server database.Server) {
+			log.Printf("Starting server %d if it wasn't already started", *server.ID)
+			err := utils.StartServer(utils.GameName(*server.ID))
+			// TODO come up with a solution to remedy this
+			if err != nil {
+				log.Printf("Server %d no longer exists in docker\n", *server.ID)
+			}
+		}(server)
+	}
 
 	// Create new base router for app
 	router := mux.NewRouter()
@@ -110,7 +127,7 @@ func main() {
 	}
 
 	// Start server
-	log.Println("Starting server")
+	log.Println("Web server is now listening")
 	if ssl {
 		log.Fatal(srv.ListenAndServeTLS("certs/cert.crt", "certs/key.pem"))
 	} else {

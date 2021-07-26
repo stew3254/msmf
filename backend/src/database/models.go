@@ -36,6 +36,7 @@ type Server struct {
 	ID        *int    `gorm:"primaryKey; type:serial" json:"id"`
 	Port      uint16  `gorm:"not null; unique; check: Port < 65536; check: Port > 0" json:"port"`
 	Name      string  `gorm:"type: varchar(64)" json:"name"`
+	Running   bool    `gorm:"type: bool" json:"running"`
 	GameID    *int    `gorm:"not null" json:"-"`
 	Game      Game    `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE" json:"game"`
 	OwnerID   *int    `gorm:"not null" json:"-"`
