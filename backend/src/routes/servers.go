@@ -65,47 +65,58 @@ func getServer(url string) (serverID int) {
 func canViewServer(serverID int, token string) (bool, error) {
 	// See if they are the server owner
 	var count int64
-	database.DB.Table("servers").Joins(
-		"INNER JOIN users ON servers.owner_id = users.id",
-	).Where("users.token = ? AND servers.id = ?", token, serverID).Count(&count)
-	// They are not the owner or server doesn't exist
-	if count == 0 {
-		// See if this user has any server level permissions to be able to view this server
-		err := database.DB.Table("servers s").Joins(
-			"INNER JOIN server_perms_per_users sppu ON s.id = sppu.server_id",
-		).Joins(
-			"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
-		).Joins(
-			"INNER JOIN users u ON sppu.user_id = u.id",
-		).Where(
-			"u.token = ? AND s.id = ?", token, serverID,
-		).Count(&count).Error
+	// See if this user has any user level permissions to be able to view this server
+	err := database.DB.Table("users u").Joins(
+		"INNER JOIN perms_per_users ppu ON u.id = ppu.user_id",
+	).Joins(
+		"INNER JOIN user_perms up ON ppu.user_perm_id = up.id",
+	).Where("u.token = ? AND ("+
+		"up.name = 'administrator' OR "+
+		"up.name = 'manage_server_permission' OR "+
+		"up.name = 'delete_server'"+
+		")", token).Count(&count).Error
 
-		// Person has no server level perms to view this server
-		if err != nil {
-			return false, err
-		}
-
-		// They don't have a single relevant permission for the server
-		if count == 0 {
-			// See if this user has any user level permissions to be able to view this server
-			err = database.DB.Table("users u").Joins(
-				"INNER JOIN perms_per_users ppu ON u.id = ppu.user_id",
-			).Joins(
-				"INNER JOIN user_perms up ON ppu.user_perm_id = up.id",
-			).Where("u.token = ? AND ("+
-				"up.name = 'administrator' OR "+
-				"up.name = 'manage_server_permission' OR "+
-				"up.name = 'delete_server'"+
-				")", token).Count(&count).Error
-			if err != nil {
-				return false, err
-			} else if count == 0 {
-				// There are no relevant user level permissions
-				return false, nil
-			}
-		}
+	// Complain on db error
+	if err != nil {
+		return false, err
 	}
+
+	// They have perms to view all servers as existing
+	if count > 0 {
+		return true, nil
+	}
+
+	// See if they are an owner
+	ownedServersQuery := database.DB.Select("s.*").Table("servers s").Joins(
+		"INNER JOIN users u ON s.owner_id = u.id",
+	).Where("u.token = ? AND s.id = ?", token, serverID)
+
+	// See if they have any related user level perms
+	serverPermsQuery := database.DB.Table("servers s").Joins(
+		"INNER JOIN server_perms_per_users sppu ON s.id = sppu.server_id",
+	).Joins(
+		"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
+	).Joins(
+		"INNER JOIN users u ON sppu.user_id = u.id",
+	).Where(
+		"u.token = ? AND s.id = ?", token, serverID,
+	)
+
+	// Join the two queries
+	err = database.DB.Distinct("sp.*").Table("(?) as sp", serverPermsQuery).Joins(
+		"FULL OUTER JOIN (?) as o ON sp.id = o.id", ownedServersQuery,
+	).Count(&count).Error
+
+	// Some sort of db error
+	if err != nil {
+		return false, err
+	}
+
+	// User is not an owner or has no perms to view this server
+	if count == 0 {
+		return false, nil
+	}
+
 	return true, nil
 }
 
@@ -298,7 +309,82 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetServers(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
+	// Define the servers
+	var servers []database.Server
+
+	// Get user token
+	tokenCookie, _ := r.Cookie("token")
+	token := tokenCookie.Value
+
+	// Get query information
+	query := r.URL.Query()
+
+	order := "name"
+
+	// Set column ordering
+	if len(query.Get("order_by")) > 0 {
+		// Only take the first field if they try to put in whitespace
+		order = strings.ToLower(strings.Fields(query.Get("order_by"))[0])
+	}
+
+	// Set direction
+	reverseStr := strings.ToLower(query.Get("reverse"))
+	if reverseStr == "true" {
+		order += " desc"
+	}
+
+	// See if they are the server owner
+	var count int64
+	// See if this user has any user level permissions to be able to view this server
+	err := database.DB.Table("users u").Joins(
+		"INNER JOIN perms_per_users ppu ON u.id = ppu.user_id",
+	).Joins(
+		"INNER JOIN user_perms up ON ppu.user_perm_id = up.id",
+	).Where("u.token = ? AND ("+
+		"up.name = 'administrator' OR "+
+		"up.name = 'manage_server_permission' OR "+
+		"up.name = 'delete_server'"+
+		")", token).Count(&count).Error
+
+	// Complain on db error
+	if err != nil {
+		utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+	}
+
+	// They have perms to view all servers
+	if count > 0 {
+		database.DB.Order(order).Find(&servers)
+	} else {
+		// Get owned servers
+		ownedServersQuery := database.DB.Select("s.*").Table("servers s").Joins(
+			"INNER JOIN users u ON s.owner_id = u.id",
+		).Where("u.token = ?", token)
+
+		// Get servers they have perms for
+		serverPermsQuery := database.DB.Table("servers s").Joins(
+			"INNER JOIN server_perms_per_users sppu ON s.id = sppu.server_id",
+		).Joins(
+			"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
+		).Joins(
+			"INNER JOIN users u ON sppu.user_id = u.id",
+		).Where(
+			"u.token = ?", token,
+		)
+
+		// Join the two queries
+		err = database.DB.Distinct("sp.*").Table("(?) as sp", serverPermsQuery).Joins(
+			"FULL OUTER JOIN (?) as o ON sp.id = o.id", ownedServersQuery,
+		).Order(order).Find(&servers).Error
+
+		// Some sort of db error
+		if err != nil {
+			utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+
+	// Write out the servers
+	_, _ = w.Write(utils.ToJSON(&servers))
 }
 
 func GetServer(w http.ResponseWriter, r *http.Request) {
@@ -377,6 +463,9 @@ func UpdateServer(w http.ResponseWriter, r *http.Request) {
 		utils.ErrorJSON(w, http.StatusBadRequest, database.DB.Error.Error())
 		return
 	}
+
+	// Save the updates
+	database.DB.Save(&server)
 
 	// Write out the new updated server data
 	_, _ = w.Write(utils.ToJSON(&server))

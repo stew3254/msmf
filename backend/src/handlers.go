@@ -78,7 +78,6 @@ type HTMLStrippingFileSystem struct {
 // UNAVOIDABLE BUG: When going to a directory index.html,
 // the url will not have a trailing slash
 func (fs HTMLStrippingFileSystem) Open(name string) (http.File, error) {
-
 	// Directory doesn't exist, now checking
 	if len(strings.Split(name, ".")) == 1 {
 		if name == "/" {
@@ -108,8 +107,10 @@ func (fs HTMLStrippingFileSystem) Open(name string) (http.File, error) {
 	}
 
 	file, err := fs.FileSystem.Open(name[1:])
+	// If the file isn't found, just send back index.html
 	if err != nil {
-		return nil, err
+		file, err = fs.FileSystem.Open("index.html")
+		return file, err
 	}
 	return file, err
 }
