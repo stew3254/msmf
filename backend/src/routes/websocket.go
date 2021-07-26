@@ -256,6 +256,12 @@ func ServerConsole(connDetails *ConnDetails, c ConnContainer) {
 				// If this key doesn't exist it doesn't matter
 				delete(AttachedServers, connDetails.ServerID)
 				WsLock.Unlock()
+
+				// Update the database to say that this server is no longer started
+				database.DB.Model(&database.Server{}).Where(
+					"servers.id = ?", connDetails.ServerID,
+				).Update("running", false)
+
 				// We are done, kill this function
 				return
 			}
