@@ -79,7 +79,7 @@ class App : RComponent<RProps, RState>() {
                                 h1 { +"Change Password" }
                             }
                             route("/console") {
-                                h1 { +"Console" }
+                                child(DevConsole::class) {}
                             }
                             route("/") {
                                 h1 { +"Hello world!" }

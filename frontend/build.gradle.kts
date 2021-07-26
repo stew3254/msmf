@@ -13,10 +13,10 @@ repositories {
 dependencies {
     implementation("org.jetbrains.kotlin-wrappers:kotlin-react:17.0.2-pre.206-kotlin-1.5.10")
     implementation("org.jetbrains.kotlin-wrappers:kotlin-react-dom:17.0.2-pre.206-kotlin-1.5.10")
-    implementation("org.jetbrains.kotlin-wrappers:kotlin-styled:5.3.0-pre.206-kotlin-1.5.10")
     implementation("org.jetbrains.kotlin-wrappers:kotlin-react-router-dom:5.2.0-pre.206-kotlin-1.5.10")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.1")
     implementation(npm("bootstrap", "5.0.2"))
+    implementation(devNpm("html-webpack-plugin", "5.3.2"))
     testImplementation(kotlin("test"))
 }
 
@@ -26,6 +26,7 @@ kotlin {
         browser {
             commonWebpackConfig {
                 cssSupport.enabled = true
+                cssSupport.mode = "extract"
             }
         }
     }
