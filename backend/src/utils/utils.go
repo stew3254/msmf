@@ -2,22 +2,40 @@ package utils
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"time"
 
 	"msmf/database"
 )
 
-// RefInt returns reference to the int suppied
-func RefInt(i int) *int {
-	return &i
+// ToJSON converts to json and logs errors. Simply here to reduce code duplication
+func ToJSON(v interface{}) []byte {
+	out, err := json.Marshal(v)
+	if err != nil {
+		log.Println(err)
+	}
+	return out
+}
+
+// ErrorJSON writes out an error in json form and sets appropriate headers. Should be used by API
+func ErrorJSON(w http.ResponseWriter, status int, err string) {
+	w.WriteHeader(status)
+	resp := make(map[string]interface{})
+	resp["error"] = err
+	_, _ = w.Write(ToJSON(resp))
 }
 
 // GenerateToken returns a token representing a logged in user
 func GenerateToken() (string, time.Time) {
-  b := make([]byte, 32)
-  rand.Read(b)
-  return fmt.Sprintf("%x", b), time.Now().Add(time.Hour)
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		log.Println(err)
+	}
+	return fmt.Sprintf("%x", b), time.Now().Add(time.Hour)
 }
 
 // ValidateToken verifies a token exists in the db and isn't expired
@@ -35,11 +53,11 @@ func ValidateToken(token string) bool {
 // the search entity has proper permissions
 // Perms must be of type string or []string
 type PermCheck struct {
-	FKTable string
-	Perms interface{} // Can be of type string or []string
-	PermTable string
-	Search interface{} // Can be of any type
-	SearchCol string
+	FKTable     string
+	Perms       interface{} // Can be of type string or []string
+	PermTable   string
+	Search      interface{} // Can be of any type
+	SearchCol   string
 	SearchTable string
 }
 
@@ -59,11 +77,59 @@ func CheckPermissions(permCheck *PermCheck) bool {
 		permCheck.PermTable,
 		permCheck.PermTable,
 		permCheck.FKTable,
-		permCheck.PermTable[:len(permCheck.PermTable) - 1],
+		permCheck.PermTable[:len(permCheck.PermTable)-1],
 		permCheck.SearchTable,
 		permCheck.SearchTable,
 		permCheck.FKTable,
-		permCheck.SearchTable[:len(permCheck.SearchTable) - 1],
+		permCheck.SearchTable[:len(permCheck.SearchTable)-1],
+		permCheck.SearchTable,
+		permCheck.SearchCol,
+		permCheck.PermTable,
+	)
+
+	var perms []string
+	switch p := permCheck.Perms.(type) {
+	case string:
+		perms = []string{
+			"administrator",
+			p,
+		}
+		break
+	case []string:
+		perms = append(p, "administrator")
+	}
+
+	result := database.DB.Raw(query, permCheck.Search, perms)
+	if result.Error != nil {
+		return false
+	}
+
+	var count int
+	result.Scan(&count)
+	return count > 0
+}
+
+// GetPermissions takes the permission type (PermsPerUser vs ServerPermsPerUser)
+// The permission(s) as a string or []string
+func GetPermissions(permCheck *PermCheck) bool {
+	// Build the query string
+	query := fmt.Sprintf(`
+		SELECT * FROM %s
+		INNER JOIN %s
+			ON %s.id = %s.%s_id
+		INNER JOIN %s
+			ON %s.id = %s.%s_id
+		WHERE %s.%s = ?
+		AND %s.name in ?`,
+		permCheck.FKTable,
+		permCheck.PermTable,
+		permCheck.PermTable,
+		permCheck.FKTable,
+		permCheck.PermTable[:len(permCheck.PermTable)-1],
+		permCheck.SearchTable,
+		permCheck.SearchTable,
+		permCheck.FKTable,
+		permCheck.SearchTable[:len(permCheck.SearchTable)-1],
 		permCheck.SearchTable,
 		permCheck.SearchCol,
 		permCheck.PermTable,

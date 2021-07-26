@@ -1,105 +1,64 @@
 package games
 
 import (
-	"bufio"
-	"fmt"
-	"io"
-	"log"
-	"os"
-	"os/exec"
-	"os/signal"
-	"syscall"
+	"strconv"
+	"strings"
 )
 
-//Handles stdin from the server
-func Stdin(stdin *io.WriteCloser) {
-	defer (*stdin).Close()
+const McDefaultPort uint16 = 25565
 
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		io.Copy(*stdin, reader)
+// MCIsVersion checks if the string is actually a valid Minecraft version
+func MCIsVersion(v string) bool {
+	s := strings.Split(v, ".")
+	if len(s) < 2 || len(s) > 3 {
+		return false
 	}
+	for i, part := range s {
+		n, err := strconv.Atoi(part)
+		if err != nil {
+			return false
+		}
+		if i == 0 && n < 1 {
+			return false
+		}
+	}
+	return true
 }
 
-//Handles stderr from the server
-func Stderr(stderr *io.ReadCloser) {
-	scanner := bufio.NewScanner(*stderr)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		m := scanner.Text()
-		fmt.Println(m)
-	}
-}
+// MCVersionCompare checks mainstream Minecraft versions, does not support snapshots
+// Check to see if these are actually versions first before running this function
+func MCVersionCompare(a, b string) int {
+	aSlice := strings.Split(a, ".")
+	bSlice := strings.Split(b, ".")
 
-func StartServer() {
-	fmt.Print("Input the directory to your server: ")
-	//Read in directory name
-	reader := bufio.NewReader(os.Stdin)
-	dir, err := reader.ReadString('\n')
-	dir = dir[0 : len(dir)-1]
-	if err != nil {
-		log.Fatal(err)
-		return
+	// Check major version (This probably will always be the same)
+	if aSlice[0] > bSlice[0] {
+		return 1
+	} else if aSlice[0] < bSlice[0] {
+		return -1
 	}
 
-	//Change to that directory
-	err = os.Chdir(dir)
-	if err != nil {
-		log.Fatal(err)
-		return
+	// Check minor version
+	if aSlice[1] > bSlice[1] {
+		return 1
+	} else if aSlice[1] < bSlice[1] {
+		return -1
 	}
 
-	//Server start command
-	cmd := exec.Command("java", "-Xmx1024M", "-Xms1024M", "-jar", "server.jar", "nogui")
-	//Change stdin pipe
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		log.Fatal(err)
+	// First see if there is a patch number
+	if len(aSlice) == 3 && len(bSlice) == 3 {
+		// Check patch version
+		if aSlice[2] > bSlice[2] {
+			return 1
+		} else if aSlice[2] < bSlice[2] {
+			return -1
+		}
+	} else if len(aSlice) == 3 && len(bSlice) == 2 {
+		return 1
+	} else if len(aSlice) == 2 && len(bSlice) == 3 {
+		return -1
 	}
 
-	//Catch Control C presses and properly stop the server
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT)
-	signal.Notify(c, syscall.SIGTERM)
-
-	go func() {
-		<-c
-		io.WriteString(stdin, "stop")
-		stdin.Close()
-	}()
-
-	//Changes stdout pipe
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//Changes stderr pipe
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//Start the server
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
-	}
-
-	//Handle input to the server
-	go Stdin(&stdin)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//Print error from the server
-	go Stderr(&stderr)
-
-	//Print output from the server
-	scanner := bufio.NewScanner(stdout)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		m := scanner.Text()
-		fmt.Println(m)
-	}
-	cmd.Wait()
+	// Everything must be the same
+	return 0
 }

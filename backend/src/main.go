@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"msmf/utils"
 	"net/http"
 	"os"
 	"time"
@@ -20,30 +21,72 @@ func main() {
 		panic("failed to connect database")
 	}
 
-	// Used for debug purposes
+	// Used for debugging purposes
 	// database.DropTables()
 
-	// Create all of the tables with constraints
-	database.CreateTables()
+	// Create all of the tables with constraints and add all necessary starting information
+	// if it doesn't already exist
+	database.MakeDB()
 
-	// Create base admin account
-	database.MakeAdmin()
+	// If servers were running when msmf stopped, start them up again
+	var servers []database.Server
+	database.DB.Where("servers.running = ?", true).Find(&servers)
+	for _, server := range servers {
+		// Run them as goroutines so the serer start up is faster
+		go func(server database.Server) {
+			log.Printf("Starting server %d if it wasn't already started", *server.ID)
+			err := utils.StartServer(utils.GameName(*server.ID))
+			// TODO come up with a solution to remedy this
+			if err != nil {
+				log.Printf("Server %d no longer exists in docker\n", *server.ID)
+			}
+		}(server)
+	}
 
 	// Create new base router for app
 	router := mux.NewRouter()
 
 	// Handlers
+	// Not working?
 	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Oof, bad place"))
 	})
+	// Handle logins
 	router.HandleFunc("/login", routes.Login).Methods("POST")
+	// Handle changing password
+	router.HandleFunc("/change-password", routes.ChangePassword).Methods("POST")
 
 	// Handle API calls
 	api := router.PathPrefix("/api").Subrouter()
-	api.HandleFunc("/ws", routes.WSHandler)
+	// Handle calls to create servers
+	api.HandleFunc("/server", routes.CreateServer).Methods("POST")
+	// Handle calls to list servers
+	api.HandleFunc("/server", routes.GetServers).Methods("GET")
+	// Handle calls to view a server
+	api.HandleFunc("/server/{id:[0-9]+}", routes.GetServer).Methods("GET")
+	// Handle calls to update a server
+	api.HandleFunc("/server/{id:[0-9]+}", routes.UpdateServer).Methods("PATCH")
+	// Handle calls to delete servers
+	api.HandleFunc("/server/{id:[0-9]+}", routes.DeleteServer).Methods("DELETE")
+	// Handle calls to start a server
+	api.HandleFunc("/server/{id:[0-9]+}/start", routes.StartServer).Methods("GET")
+	// Handle calls to stop a server
+	api.HandleFunc("/server/{id:[0-9]+}/stop", routes.StopServer).Methods("GET")
+	// Handle calls to restart a server
+	api.HandleFunc("/server/{id:[0-9]+}/restart", routes.RestartServer).Methods("GET")
+
+	// Handle websocket connections for server consoles
+	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WsServerHandler)
+
+	// Get existing referral codes
 	api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
+	// Creating new referral codes
 	api.HandleFunc("/refer/new", routes.CreateReferral).Methods("GET")
+	// Handle referral code
 	api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "POST")
+
+	// Get user permissions
+	api.HandleFunc("/perm", routes.GetPerms).Methods("GET")
 
 	// Handle static traffic
 	router.PathPrefix("/").Handler(http.FileServer(HTMLStrippingFileSystem{http.Dir("static")})).Methods("GET")
@@ -66,7 +109,7 @@ func main() {
 		port = "5000"
 	}
 
-	// Set up tls
+	// Set up ssl
 	sslString, exists := os.LookupEnv("USE_SSL")
 	var ssl bool
 	if sslString == "true" || sslString == "yes" {
@@ -84,7 +127,7 @@ func main() {
 	}
 
 	// Start server
-	log.Println("Starting server")
+	log.Println("Web server is now listening")
 	if ssl {
 		log.Fatal(srv.ListenAndServeTLS("certs/cert.crt", "certs/key.pem"))
 	} else {

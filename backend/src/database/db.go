@@ -1,16 +1,16 @@
 package database
 
 import (
-  "fmt"
-  "os"
-  "log"
-  "strings"
-  "strconv"
-  "time"
+	"fmt"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"gorm.io/driver/postgres"
-  "golang.org/x/crypto/bcrypt"
+	"log"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // DB is a global db connection to be shared
@@ -23,22 +23,22 @@ func checkExists(exists bool, msg string) {
 	}
 }
 
-//ConnectDB sets up the initial connection to the database along with retrying attempts
+// ConnectDB sets up the initial connection to the database along with retrying attempts
 func ConnectDB(dbType string) error {
 	// Get user credentials
 	dbTypeUpper := strings.ToUpper(dbType)
 
-	user, exists := os.LookupEnv(dbTypeUpper+"_USER")
+	user, exists := os.LookupEnv(dbTypeUpper + "_USER")
 	checkExists(exists, "Couldn't find database user")
-	password, exists := os.LookupEnv(dbTypeUpper+"_PASSWORD")
+	password, exists := os.LookupEnv(dbTypeUpper + "_PASSWORD")
 	checkExists(exists, "Couldn't find database password")
 
 	// Get database params
-	dbServer, exists := os.LookupEnv(dbTypeUpper+"_SERVER")
+	dbServer, exists := os.LookupEnv(dbTypeUpper + "_SERVER")
 	checkExists(exists, "Couldn't find database server")
-	dbPort, exists := os.LookupEnv(dbTypeUpper+"_PORT")
+	dbPort, exists := os.LookupEnv(dbTypeUpper + "_PORT")
 	checkExists(exists, "Couldn't find database port")
-	dbName, exists := os.LookupEnv(dbTypeUpper+"_DB")
+	dbName, exists := os.LookupEnv(dbTypeUpper + "_DB")
 	checkExists(exists, "Couldn't find database name")
 	connectionString := fmt.Sprintf(
 		"sslmode=disable host=%s port=%s dbname=%s user=%s password=%s",
@@ -47,8 +47,8 @@ func ConnectDB(dbType string) error {
 		dbName,
 		user,
 		password,
-  )
-  
+	)
+
 	// Check how many times to try the db before quitting
 	attemptsStr, exists := os.LookupEnv("DB_ATTEMPTS")
 	if !exists {
@@ -91,40 +91,40 @@ func ConnectDB(dbType string) error {
 	return nil
 }
 
-// CreatePerms creates all server perms
-func CreatePerms() {
-	// User Permissions
+// createPerms creates all server perms
+func createPerms() {
+	// Owner Permissions
 	userPerms := []UserPerm{
 		{
-			Name: "administrator",
+			Name:        "administrator",
 			Description: "Enables full control over all user permissions",
 		},
 		{
-			Name: "create_server",
+			Name:        "create_server",
 			Description: "Enables creation of servers and the deletion of your own servers",
 		},
 		{
-			Name: "delete_server",
+			Name:        "delete_server",
 			Description: "Enables deletion of all servers regardless of server owner",
 		},
 		{
-			Name: "manage_user_permission",
+			Name:        "manage_user_permission",
 			Description: "Allows management of other users's permissions. You cannot add permissions to others that you do not have already",
 		},
 		{
-			Name: "manage_server_permission",
+			Name:        "manage_server_permission",
 			Description: "Enables the ability to modify all server permissions for all servers and users. Note, you cannot remove permissions from people who own servers",
 		},
 		{
-			Name: "invite_user",
+			Name:        "invite_user",
 			Description: "Enables the ability to add more users to the web portal",
 		},
 		{
-			Name: "delete_user",
+			Name:        "delete_user",
 			Description: "Enables the ability to delete users from the web portal",
 		},
 		{
-			Name: "view_logs",
+			Name:        "view_logs",
 			Description: "Allows a user to view a history of web server logs",
 		},
 	}
@@ -132,57 +132,60 @@ func CreatePerms() {
 	// Server Permissions
 	serverPerms := []ServerPerm{
 		{
-			Name: "administrator",
+			Name:        "administrator",
 			Description: "Enables full control over all server permissions for a server",
 		},
 		{
-			Name: "restart",
+			Name:        "restart",
 			Description: "Enables stopping and starting of the server",
 		},
 		{
-			Name: "edit_configuration",
+			Name:        "edit_configuration",
 			Description: "Enables changing the port amoung other features",
 		},
 		{
-			Name: "manage_mods",
+			Name:        "manage_mods",
 			Description: "Enables adding and removing mods from the server",
 		},
 		{
-			Name: "kick",
+			Name:        "kick",
 			Description: "Allows kicking of players from a server",
 		},
 		{
-			Name: "ban",
+			Name:        "ban",
 			Description: "Allows banning of players from a server",
 		},
 		{
-			Name: "view_logs",
+			Name:        "view_logs",
 			Description: "Enables viewing of server logs, but not being able to send commands",
 		},
 		{
-			Name: "manage_server_console",
+			Name:        "manage_server_console",
 			Description: "Enables attaching to the server console directly in order to run commands. Note, this will make you a server operator as well on games that have support for that",
 		},
 	}
 
 	// Upsert into table permissions
 	DB.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "name"}},
+		Columns:   []clause.Column{{Name: "name"}},
 		DoUpdates: clause.AssignmentColumns([]string{"name", "description"}),
 	}).Create(&userPerms)
 
 	DB.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "name"}},
+		Columns:   []clause.Column{{Name: "name"}},
 		DoUpdates: clause.AssignmentColumns([]string{"name", "description"}),
 	}).Create(&serverPerms)
 }
 
-// MakeAdmin upserts the default admin account
-func MakeAdmin() {
+// makeAdmin upserts the default admin account
+func makeAdmin() {
+	// See if password exists
 	passwd, exists := os.LookupEnv("ADMIN_PASSWORD")
 	if !exists {
 		log.Fatal("You must set an admin password")
 	}
+
+	// Hash the password
 	hash, err := bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.DefaultCost)
 	if err != nil {
 		log.Fatal(err)
@@ -194,7 +197,7 @@ func MakeAdmin() {
 		Password: hash,
 	}
 	DB.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "username"}},
+		Columns:   []clause.Column{{Name: "username"}},
 		DoUpdates: clause.AssignmentColumns([]string{"password"}),
 	}).Create(&admin)
 
@@ -207,16 +210,30 @@ func MakeAdmin() {
 
 	// Actually add admin perms to admin user
 	DB.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "user_id"}, {Name: "user_perm_id"}},
+		Columns:   []clause.Column{{Name: "user_id"}, {Name: "user_perm_id"}},
 		DoNothing: true,
 	}).Create(PermsPerUser{
-		UserID: *admin.ID,
+		UserID:     *admin.ID,
 		UserPermID: *userPerm.ID,
 	})
 }
 
-// CreateTables sets up the db
-func CreateTables() {
+// addGames adds all supported games and their versions to the database
+// This should only be used by developers who have tested the containers the servers will run in
+func addGames() {
+	// Add Minecraft
+	DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "name"}},
+		DoNothing: true,
+	}).Create(&Game{
+		Name:    "Minecraft",
+		Image:   "itzg/minecraft-server",
+		IsImage: true,
+	})
+}
+
+// MakeDB sets up the db
+func MakeDB() {
 	// Create all regular tables
 	DB.AutoMigrate(
 		&Game{},
@@ -238,7 +255,13 @@ func CreateTables() {
 	)
 
 	// Create base permissions
-	CreatePerms()
+	createPerms()
+
+	// Add all supported games
+	addGames()
+
+	// Create the admin account
+	makeAdmin()
 }
 
 // DropTables drops everything in the db

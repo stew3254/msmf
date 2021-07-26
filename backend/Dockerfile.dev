@@ -2,7 +2,15 @@ FROM golang:latest
 # USER www-data
 WORKDIR /srv/website
 EXPOSE 3000
+
+RUN curl -sSL https://get.docker.com/ | sh
+
+# Get gin autoreload framework
 RUN go get "github.com/codegangsta/gin"
+
+# Grab the mod file and install all dependencies
 COPY src/go.mod src/go.sum ./
 RUN go mod download
+
+# Run gin to autoreload the server on source code changes
 CMD gin -t src -b main -a 5000 -i run
