@@ -132,13 +132,13 @@ func runServer(w http.ResponseWriter, r *http.Request, action string) {
 	}
 	var err error
 	if action == "start" {
-		err = utils.StartServer(utils.GameName(getServer(r.URL.String())))
+		err = utils.StartServer(getServer(r.URL.String()))
 	} else if action == "stop" {
-		err = utils.StopServer(utils.GameName(getServer(r.URL.String())))
+		err = utils.StopServer(getServer(r.URL.String()))
 	} else {
 		// Ignore the first since if there was a problem the second would catch it anyways
-		_ = utils.StopServer(utils.GameName(getServer(r.URL.String())))
-		err = utils.StartServer(utils.GameName(getServer(r.URL.String())))
+		_ = utils.StopServer(getServer(r.URL.String()))
+		err = utils.StartServer(getServer(r.URL.String()))
 	}
 
 	if err != nil {
@@ -294,10 +294,10 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 	// See if server already exists
 	servers := utils.GetGameServers()
 	for _, s := range servers {
-		if s == utils.GameName(*server.ID) {
+		if s == utils.ServerName(*server.ID) {
 			// Delete the existing server already, something went wrong
 			// This might not be the right action to do, but will work for now
-			utils.DeleteServer(s)
+			utils.DeleteServer(*server.ID)
 		}
 	}
 
@@ -494,7 +494,7 @@ func DeleteServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the server
-	utils.DeleteServer(utils.GameName(getServer(r.URL.String())))
+	utils.DeleteServer(getServer(r.URL.String()))
 
 	// Delete it from the database
 	database.DB.Delete(&database.Server{}, serverID)

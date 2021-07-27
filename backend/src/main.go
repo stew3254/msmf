@@ -34,8 +34,9 @@ func main() {
 	for _, server := range servers {
 		// Run them as goroutines so the serer start up is faster
 		go func(server database.Server) {
-			log.Printf("Starting server %d if it wasn't already started", *server.ID)
-			err := utils.StartServer(utils.GameName(*server.ID))
+			log.Printf("Restarting server %d since it is supposed to be started", *server.ID)
+			_ = utils.StopServer(*server.ID)
+			err := utils.StartServer(*server.ID)
 			// TODO come up with a solution to remedy this
 			if err != nil {
 				log.Printf("Server %d no longer exists in docker\n", *server.ID)

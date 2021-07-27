@@ -5,6 +5,7 @@ import (
 	"msmf/database"
 	"msmf/utils"
 	"net/http"
+	"strings"
 )
 
 func checkIntPerms(w http.ResponseWriter, r *http.Request) bool {
@@ -91,19 +92,27 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 		Server:     server,
 	}
 
+	// See if the integration should not be active
+	active, exists := body["active"]
+	if exists && strings.ToLower(active) != "true" {
+		integration.Active = false
+	} else {
+		integration.Active = true
+	}
+
 	// Get the username if it exists
 	name, exists := body["username"]
 	if exists {
-		integration.Username = name
+		integration.Username = &name
 	} else {
 		// Add server name otherwise
-		integration.Username = server.Name
+		integration.Username = &server.Name
 	}
 
 	// Get the avatar url if it exists
 	avatar, exists := body["avatar_url"]
 	if exists {
-		integration.AvatarURL = avatar
+		integration.AvatarURL = &avatar
 	}
 
 	// Actually create the integration
@@ -137,10 +146,19 @@ func DeleteIntegration(w http.ResponseWriter, r *http.Request) {
 
 // GetIntegration will show information about the integration with a server
 func GetIntegration(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not implemented", http.StatusNotImplemented)
-}
+	// Check integration perms
+	if !checkIntPerms(w, r) {
+		// Didn't meet the required permissions
+		return
+	}
 
-// SendWebhook will send over the data to Discord
-func SendWebhook() {
+	serverID := getServer(r.URL.String())
 
+	var integration database.DiscordIntegration
+	err := database.DB.Where("server_id = ?", serverID).Find(&integration).Error
+	if err != nil {
+		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
+	}
+
+	utils.WriteJSON(w, http.StatusOK, &integration)
 }

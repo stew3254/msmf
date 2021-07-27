@@ -33,14 +33,14 @@ type Mod struct {
 
 // DiscordIntegration Model
 type DiscordIntegration struct {
-	ID         *int   `gorm:"primaryKey; type:serial" json:"-"`
-	Type       string `gorm:"type: varchar(64)" json:"type"`
-	DiscordURL string `gorm:"type: text" json:"discord_url"`
-	Username   string `gorm:"type: varchar(64)" json:"username"`
-	AvatarURL  string `gorm:"type: text" json:"avatar_url"`
-	Active     bool   `gorm:"not null; type: bool" json:"active"`
-	ServerID   *int   `gorm:"index:server_integration,unique" json:"-"`
-	Server     Server `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL" json:"server"`
+	ID         *int    `gorm:"primaryKey; type:serial" json:"-"`
+	Type       string  `gorm:"type: varchar(64)" json:"type"`
+	DiscordURL string  `gorm:"type: text" json:"discord_url"`
+	Username   *string `gorm:"type: varchar(64)" json:"username"`
+	AvatarURL  *string `gorm:"type: text" json:"avatar_url"`
+	Active     bool    `gorm:"not null; type: bool" json:"active"`
+	ServerID   *int    `gorm:"index:server_integration,unique" json:"server_id"`
+	Server     Server  `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL" json:"-"`
 }
 
 // Server Model
