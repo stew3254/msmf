@@ -1,0 +1,18 @@
+FROM gradle:6.8-jdk15
+
+WORKDIR /app
+
+# Copy Gradle folder
+COPY ./gradle/ ./gradle/
+
+# Copy webpack overrides
+COPY ./webpack.config.d/ ./webpack.config.d/
+
+# Copy gradle build settings and wrapper
+COPY ./build.gradle.kts ./settings.gradle.kts ./gradle.properties ./gradlew ./
+
+RUN mkdir dist && \
+    ln -s /app/build/developmentExecutable/index.html dist/index.html
+
+CMD ["gradle", "browserDevelopmentWebpack", "--continuous"]
+#CMD ["gradle", "dockerDevelopmentRun", "--continuous"]

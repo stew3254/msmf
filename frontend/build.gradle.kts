@@ -31,3 +31,13 @@ kotlin {
         }
     }
 }
+
+//tasks.register<Copy>("copyDist") {
+//    from("$buildDir/developmentExecutable")
+//    into("dist")
+//}
+//
+//tasks.register("dockerDevelopmentRun") {
+//    dependsOn("browserDevelopmentWebpack")
+//    dependsOn("copyDist")
+//}
