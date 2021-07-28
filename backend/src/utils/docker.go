@@ -121,7 +121,7 @@ func ServerConsole(connDetails *ConnDetails, console Console) {
 		// Repeatedly scan for more data
 		for scanner.Scan() {
 			// Read in the data from the scanner
-			data := scanner.Bytes()
+			data := append(scanner.Bytes(), byte('\n'))
 			if err := scanner.Err(); err != nil {
 				if isStdout {
 					log.Println("stdout err:", err)

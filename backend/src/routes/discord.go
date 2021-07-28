@@ -2,6 +2,7 @@ package routes
 
 import (
 	"encoding/json"
+	"log"
 	"msmf/database"
 	"msmf/utils"
 	"net/http"
@@ -84,16 +85,26 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create the integration
-	integration := database.DiscordIntegration{
-		Type:       integrationType,
-		DiscordURL: discord,
-		Active:     false,
-		Server:     server,
+	var integration database.DiscordIntegration
+	// Try to see if integration exists
+	database.DB.Where("server_id = ?", serverID).Find(&integration)
+
+	// If the integration doesn't really exist
+	if *integration.ServerID != serverID {
+		// Create the integration
+		integration = database.DiscordIntegration{
+			Type:       integrationType,
+			DiscordURL: discord,
+			Active:     false,
+			Server:     server,
+		}
+		// Create an integration to start
+		database.DB.Create(&integration)
 	}
 
 	// See if the integration should not be active
 	active, exists := body["active"]
+	log.Println(active)
 	if exists && strings.ToLower(active) != "true" {
 		integration.Active = false
 	} else {
@@ -115,8 +126,8 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 		integration.AvatarURL = &avatar
 	}
 
-	// Actually create the integration
-	database.DB.Create(&integration)
+	// Save the integration
+	database.DB.Save(&integration)
 
 	// Write out success
 	resp := make(map[string]string)

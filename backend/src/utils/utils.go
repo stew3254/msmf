@@ -43,7 +43,7 @@ func GenerateToken() (string, time.Time) {
 	if err != nil {
 		log.Println(err)
 	}
-	return fmt.Sprintf("%x", b), time.Now().Add(time.Hour)
+	return fmt.Sprintf("%x", b), time.Now().Add(6 * time.Hour)
 }
 
 // ValidateToken verifies a token exists in the db and isn't expired
