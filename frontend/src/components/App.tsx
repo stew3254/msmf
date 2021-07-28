@@ -1,4 +1,5 @@
 import * as React from "react";
+import {useEffect, useState} from "react";
 import {BrowserRouter as Router, Link, Route, Switch} from "react-router-dom";
 import {Badge, Container, Nav, Navbar, NavDropdown, NavItem, NavLink, Row} from "react-bootstrap";
 import Home from "./Home";
@@ -7,7 +8,6 @@ import Invite from "./Invite";
 import Register from "./Register";
 import ChangePassword from "./ChangePassword";
 import DevConsole from "./DevConsole";
-import {useEffect, useState} from "react";
 
 export default function App() {
     // const location = useLocation();

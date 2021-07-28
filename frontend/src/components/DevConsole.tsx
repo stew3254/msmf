@@ -1,11 +1,11 @@
 import * as React from "react";
+import {useEffect, useRef, useState} from "react";
 import {Badge, Button, ButtonGroup} from "react-bootstrap";
 import {useParams} from "react-router-dom";
 import {APIWebSocket} from "../api/APIWebSocket";
-import {useEffect, useRef, useState} from "react";
 
 function DevConsole() {
-    const { serverId } = useParams();
+    const {serverId} = useParams();
     const logId = useRef(0);
     const webSocket = useRef<WebSocket>();
     const [serverState, setServerState] = useState("unknown");
@@ -45,12 +45,12 @@ function DevConsole() {
     return (
         <>
             <div className="d-flex justify-content-between">
-            <h1>Console for {serverId} <Badge pill bg="info">dev</Badge></h1>
-            <ButtonGroup>
-                <Button variant="success" onClick={() => setState("start")}>Start</Button>
-                <Button variant="primary" onClick={() => setState("restart")}>Restart</Button>
-                <Button variant="danger" onClick={() => setState("stop")}>Stop</Button>
-            </ButtonGroup>
+                <h1>Console for {serverId} <Badge pill bg="info">dev</Badge></h1>
+                <ButtonGroup>
+                    <Button variant="success" onClick={() => setState("start")}>Start</Button>
+                    <Button variant="primary" onClick={() => setState("restart")}>Restart</Button>
+                    <Button variant="danger" onClick={() => setState("stop")}>Stop</Button>
+                </ButtonGroup>
             </div>
             <pre className="bg-dark text-light p-3 rounded dev-console">
                 {consoleLog.map(log => {
