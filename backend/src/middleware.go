@@ -29,7 +29,7 @@ func logRequest(next http.Handler) http.Handler {
 		}
 		queryParams := string(jsonOut)
 
-		r.ParseForm()
+		_ = r.ParseForm()
 		jsonOut, err = json.Marshal(r.PostForm)
 		if err != nil {
 			log.Println(err)

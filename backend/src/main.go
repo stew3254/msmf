@@ -34,8 +34,9 @@ func main() {
 	for _, server := range servers {
 		// Run them as goroutines so the serer start up is faster
 		go func(server database.Server) {
-			log.Printf("Starting server %d if it wasn't already started", *server.ID)
-			err := utils.StartServer(utils.GameName(*server.ID))
+			log.Printf("Restarting server %d since it is supposed to be started", *server.ID)
+			_ = utils.StopServer(*server.ID)
+			err := utils.StartServer(*server.ID)
 			// TODO come up with a solution to remedy this
 			if err != nil {
 				log.Printf("Server %d no longer exists in docker\n", *server.ID)
@@ -47,10 +48,6 @@ func main() {
 	router := mux.NewRouter()
 
 	// Handlers
-	// Not working?
-	// router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	// 	_, _ = w.Write([]byte("Oof, bad place"))
-	// })
 
 	// Handle logins
 	router.HandleFunc("/login", routes.Login).Methods("POST")
@@ -80,6 +77,13 @@ func main() {
 	// Handle websocket connections for server consoles
 	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WsServerHandler)
 
+	// Handle creating and updating integrations with Discord
+	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.MakeIntegration).Methods("PUT")
+	// Handle deleting integrations with Discord
+	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.DeleteIntegration).Methods("DELETE")
+	// Handle getting an integration with Discord
+	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.GetIntegration).Methods("GET")
+
 	// Get existing referral codes
 	api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
 	// Create new referral codes
@@ -97,7 +101,7 @@ func main() {
 	router.Use(printPath)
 
 	// See if a user is authenticated to a page before displaying
-	// router.Use(checkAuthenticated)
+	router.Use(checkAuthenticated)
 
 	// Set up server listen address
 	listenAddr, exists := os.LookupEnv("LISTEN")

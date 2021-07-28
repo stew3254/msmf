@@ -20,12 +20,20 @@ func ToJSON(v interface{}) []byte {
 	return out
 }
 
+// WriteJSON writes out an error in json form and sets appropriate headers. Should be used by API
+func WriteJSON(w http.ResponseWriter, status int, content interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(ToJSON(content))
+}
+
 // ErrorJSON writes out an error in json form and sets appropriate headers. Should be used by API
 func ErrorJSON(w http.ResponseWriter, status int, err string) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	resp := make(map[string]interface{})
 	resp["error"] = err
-	_, _ = w.Write(ToJSON(resp))
+	_, _ = w.Write(ToJSON(&resp))
 }
 
 // GenerateToken returns a token representing a logged in user
