@@ -10,11 +10,18 @@ import DevConsole from "./DevConsole";
 import {useEffect, useState} from "react";
 
 export default function App() {
+    // const location = useLocation();
     const [servers, setServers] = useState([]);
 
-    useEffect(() => {
-       fetch("api/servers").then(response => response.json().then(setServers));
-    });
+    function updateServerList() {
+        fetch("api/server").then(response => response.json().then(setServers))
+    }
+
+    useEffect(updateServerList, []);
+
+    // For now, check every 30 seconds
+    // updateServerList();
+    // setInterval(updateServerList, 30e3);
 
     return (
         <Router>
@@ -42,9 +49,9 @@ export default function App() {
                     <div className="col-md-2">
                         <Nav variant="pills" className="flex-column sticky-top top-0">
                             <NavItem>Utilities</NavItem>
-                            {servers.map(id => {
-                                return <NavLink as={Link} to={`/console/${id}`}>
-                                    Console {id}<Badge pill bg="info">dev</Badge>
+                            {servers.map(server => {
+                                return <NavLink as={Link} to={`/console/${server.id}`}>
+                                    Console {server.name} <Badge pill bg="info">dev</Badge>
                                 </NavLink>
                             })}
                         </Nav>

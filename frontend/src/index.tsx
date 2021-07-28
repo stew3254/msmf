@@ -1,4 +1,5 @@
 import "../node_modules/bootstrap/dist/css/bootstrap.min.css";
+import "./index.sass";
 import * as React from "react";
 import {render} from "react-dom";
 import App from "./components/App";
