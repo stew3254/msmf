@@ -286,6 +286,7 @@ func StartServer(serverID int) (err error) {
 		if integration.Active && integration.Type == "webhook" {
 			// Create a fake connection
 			discord := &websocket.Conn{}
+			discord = nil
 
 			// Make the channels for stdin and stdout
 			pipes := PipeChans{

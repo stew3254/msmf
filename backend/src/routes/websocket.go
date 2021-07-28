@@ -162,8 +162,11 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 				// Before sending to stdin, tell all other open websockets you are sending this message
 				// This is important so everyone gets to see the same console state
 				connDetails.SLock.Lock()
-				for _, pipes := range connDetails.SPMC {
-					pipes.StdoutChan <- data
+				for c, pipes := range connDetails.SPMC {
+					// This should be the discord socket and ignore that
+					if c != nil {
+						pipes.StdoutChan <- data
+					}
 				}
 				// Now actually send data over to stdin
 				connDetails.MChan <- data
