@@ -38,8 +38,6 @@ services:
     volumes:
       - ./frontend/src:/app/src:ro
       - static:/app/dist
-    environment:
-      - CHOKIDAR_USEPOLLING=1
 
 volumes:
   static:
