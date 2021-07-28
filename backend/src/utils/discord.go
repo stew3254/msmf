@@ -3,7 +3,6 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/stew3254/ratelimit"
 	"log"
 	"msmf/database"
 	"net/http"
@@ -34,13 +33,7 @@ func newRequest(url string, body *map[string]string) (req *http.Request, err err
 	return req, nil
 }
 
-func sendRequest(
-	client *http.Client,
-	url string,
-	rl *ratelimit.RateLimiter,
-	count *int,
-	body *map[string]string,
-) (waitUntil time.Time, err error) {
+func sendRequest(client *http.Client, url string, count *int, body *map[string]string) (waitUntil time.Time, err error) {
 	// Loop waitUntil we get a good status code
 	for {
 		req, err := newRequest(url, body)
@@ -118,10 +111,9 @@ func SendWebhook(integration database.DiscordIntegration, pipes PipeChans) {
 	}
 
 	// Create a new rate limiter
-	rl := ratelimit.NewRateLimiter(1, 5, 500*time.Millisecond, time.Millisecond)
 	count := 0
 	// Standard wait time of 500ms
-	var waitUntil time.Time = time.Now()
+	waitUntil := time.Now()
 	var err error
 
 	// Forever look for messages
@@ -150,12 +142,7 @@ func SendWebhook(integration database.DiscordIntegration, pipes PipeChans) {
 		for {
 			select {
 			case data, ok = <-pipes.StdoutChan:
-				// See if we need to add newline to separate messages
-				if len(body["content"]) == 0 {
-					body["content"] += string(data)
-				} else {
-					body["content"] += "\n" + string(data)
-				}
+				body["content"] += string(data)
 
 				// Timer has already gone off so we can send this on
 				if canSend {
@@ -166,7 +153,7 @@ func SendWebhook(integration database.DiscordIntegration, pipes PipeChans) {
 				if len(body["content"]) == 0 {
 					body["content"] += "ERROR: " + string(data)
 				} else {
-					body["content"] += "\n" + string(data)
+					body["content"] += string(data)
 				}
 
 				// Timer has already gone off so we can send this on
@@ -193,7 +180,7 @@ func SendWebhook(integration database.DiscordIntegration, pipes PipeChans) {
 
 	send:
 		// Send the request
-		waitUntil, err = sendRequest(client, integration.DiscordURL, rl, &count, &body)
+		waitUntil, err = sendRequest(client, integration.DiscordURL, &count, &body)
 		if err != nil {
 			log.Println("Webhook error:", err)
 			return
