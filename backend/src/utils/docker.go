@@ -290,7 +290,7 @@ func StartServer(serverID int) (err error) {
 			// Make the channels for stdin and stdout
 			pipes := PipeChans{
 				// A lot of messages might clog this up because of rate limiting
-				StdoutChan: make(chan []byte, 100),
+				StdoutChan: make(chan []byte, 20),
 				StderrChan: make(chan []byte, 5),
 			}
 
