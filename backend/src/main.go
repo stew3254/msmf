@@ -55,7 +55,9 @@ func main() {
 	router.HandleFunc("/change-password", routes.ChangePassword).Methods("POST")
 
 	// Handle API calls
-	api := router.PathPrefix("/api/").Subrouter()
+	api := router.PathPrefix("/api").Subrouter()
+	api.NotFoundHandler = NotFound{}
+	api.MethodNotAllowedHandler = MethodNotAllowed{}
 
 	// Handle calls to create servers
 	api.HandleFunc("/server", routes.CreateServer).Methods("POST")

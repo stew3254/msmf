@@ -11,7 +11,7 @@ import (
 	"msmf/utils"
 )
 
-// Prints the HTTP method and request URI to the screen
+// printPath prints the HTTP method and request URI to the screen
 func printPath(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Println(r.Method, r.RequestURI)
@@ -19,7 +19,7 @@ func printPath(next http.Handler) http.Handler {
 	})
 }
 
-// Logs the request to a database
+// logRequest Logs the request to a database
 func logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		jsonOut, err := json.Marshal(r.URL.Query())
@@ -58,13 +58,12 @@ func logRequest(next http.Handler) http.Handler {
 	})
 }
 
-// Good enough for now to check which routes will accept unauthenticated requests
+// checkValidUnauthenticatedRoutes simple function to return whether a route needs auth or not
 func checkValidUnauthenticatedRoutes(url string) bool {
 	return strings.HasSuffix(url, ".css") || strings.HasSuffix(url, ".js") || strings.HasSuffix(url, ".map") || url == "/" || url == "/login"
 }
 
-// Checks to see if a user is authenticated to a page before displaying
-// If they aren't authenticated, they will be redirected to the login page
+// checkAuthenticated Checks to see if a user is authenticated to a page before displaying
 func checkAuthenticated(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenCookie, err := r.Cookie("token")
