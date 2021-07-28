@@ -8,7 +8,7 @@ function DevConsole() {
     const { serverId } = useParams();
     const logId = useRef(0);
     const webSocket = useRef<WebSocket>();
-    const [alive, setAlive] = useState(true);
+    const [serverState, setServerState] = useState("unknown");
     const [userInput, setUserInput] = useState("");
     const [consoleLog, setConsoleLog] = useState([]);
 
@@ -23,7 +23,7 @@ function DevConsole() {
         return () => {
             webSocket.current.close();
         }
-    }, [alive]);
+    }, [serverState]);
 
     function handleKeyPress(event: React.KeyboardEvent) {
         if (event.key == "Enter") {
@@ -36,14 +36,10 @@ function DevConsole() {
         setUserInput("");
     }
 
-    function startServer() {
-        setAlive(true);
-        fetch(`/api/server/${serverId}/start`, {method: 'POST'}).then();
-    }
-
-    function stopServer() {
-        setAlive(false);
-        fetch(`/api/server/${serverId}/stop`, {method: 'POST'}).then();
+    function setState(state: string) {
+        fetch(`/api/server/${serverId}/${state}`, {method: 'POST'}).then(() => {
+            setServerState(state);
+        });
     }
 
     return (
@@ -51,8 +47,9 @@ function DevConsole() {
             <div className="d-flex justify-content-between">
             <h1>Console for {serverId} <Badge pill bg="info">dev</Badge></h1>
             <ButtonGroup>
-                <Button variant="success" onClick={startServer}>Start</Button>
-                <Button variant="danger" onClick={stopServer}>Stop</Button>
+                <Button variant="success" onClick={() => setState("start")}>Start</Button>
+                <Button variant="primary" onClick={() => setState("restart")}>Restart</Button>
+                <Button variant="danger" onClick={() => setState("stop")}>Stop</Button>
             </ButtonGroup>
             </div>
             <pre className="bg-dark text-light p-3 rounded dev-console">

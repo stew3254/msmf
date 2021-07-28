@@ -14,7 +14,7 @@ export default function App() {
     const [servers, setServers] = useState([]);
 
     function updateServerList() {
-        fetch("api/server").then(response => response.json().then(setServers))
+        fetch("/api/server").then(response => response.json().then(setServers))
     }
 
     useEffect(updateServerList, []);
