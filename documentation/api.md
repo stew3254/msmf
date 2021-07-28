@@ -60,7 +60,7 @@ for future authentication. If the login is invalid, you will get an HTTP Status 
 Request:
 
 ```http request
-POST /login
+POST /login HTTP/1.1
 Host: localhost:8080
 Content-Type: application/x-www-form-urlencoded
 
@@ -95,7 +95,7 @@ you to the index page.
 Request:
 
 ```http request
-POST /change-password
+POST /change-password HTTP/1.1
 Host: localhost:8080
 Content-Type: application/x-www-form-urlencoded
 
@@ -120,9 +120,130 @@ referral code to create an account themselves.
 
 ### Creating a Referral Code
 
-To create a referral code, you must first be an authenticated user and have the permission
-`invite_user`.
+To create a referral code, you must first be an authenticated user and have the
+permission `invite_user`. Without this, you will receive either an HTTP Status Unauthorized or HTTP
+Status Forbidden error. Referral codes are single use and expire after 24 hours.
+
+#### Format
+
+Given you have permissions, submitting a POST request to `/api/refer` with an empty body, and a
+valid token cookie will return a JSON response with the code in it.
+
+#### Example
+
+Request:
+
+```http request
+POST /api/refer HTTP/1.1
+Host: localhost:8080
+Cookie: token=8e293bfe1e482996f0782d4caac775d6cec81a102885547c939279f0e6634785
+Accept: application/json
+
+```
+
+Response:
+
+```http request
+HTTP/1.1 200 OK
+Content-Length: 36
+Content-Type: application/json
+Date: Wed, 28 Jul 2021 20:23:59 GMT
+
+{"code":92659391,"status":"Success"}
+```
 
 ### Using a Referral Code
 
+To use a referral code, you must have a valid, unexpired referral code. It will be consumed upon
+use. If you submit a request to an invalid code, you will receive an HTTP Status Bad Request Error
+
+#### Format
+
+Submit a POST request to `/api/refer/:code` where `:code` is your referral code. The body of this
+POST should contain the fields `username` and `password`. Your `username` must not conflict with any
+other existing usernames in the database.
+
+#### Example
+
+Request:
+
+```http request
+POST /api/refer/92659391 HTTP/1.1
+Host: localhost:8080
+Accept: application/json
+
+{"username": "stew3254", "password": "UNuD3TUWgiBPU2!r2U6X"}
+```
+
+Response:
+
+```http request
+HTTP/1.1 200 OK
+Content-Length: 20
+Content-Type: application/json
+Date: Wed, 28 Jul 2021 20:46:32 GMT
+
+{"status":"Success"}
+```
+
 ### Listing Active Referral Codes
+
+There are two ways to list active referral codes. If you know the code, you can either get the
+entire list of codes, or you can get information about a specific code
+
+#### Format
+
+Submit a GET request to `/api/refer/` to get a listing of all valid authentication codes. This
+request requires the `invite_user` permission to do. The reason being, then an authenticated user
+without that cannot just troll that endpoint waiting for codes to come up to invite other users by
+stealing a code someone else made.
+
+The second is to submit a GET request to `/api/refer/:code` if that code is valid, it will return
+details about the code. This does **not** need the `invite_user` request to do. The reason being is
+that if this permission is required, a malicious user without authentication could create
+intentionally malformed POST requests to send to each code url. If they receive an HTTP Bad Request
+Status, then they know the code exists. Therefore, hiding this response wouldn't help much anyways.
+
+#### Examples
+
+All Codes Request:
+
+```http request
+GET /api/refer HTTP/1.1
+Host: localhost:8080
+Cookie: token=8e293bfe1e482996f0782d4caac775d6cec81a102885547c939279f0e6634785
+Accept: application/json
+
+```
+
+Response:
+
+```http request
+HTTP/1.1 200 OK
+Content-Length: 179
+Content-Type: application/json
+Date: Wed, 28 Jul 2021 20:46:32 GMT
+
+[{"code":42910757,"expiration":"2021-07-29T21:44:05.740188Z","user":{"username":"admin"}},{"code":99927865,"expiration":"2021-07-29T21:44:25.763361Z","user":{"username":"admin"}}]
+```
+
+Single Code Request:
+
+```http request
+GET /api/refer/37956766 HTTP/1.1
+Host: localhost:8080
+Cookie: token=8e293bfe1e482996f0782d4caac775d6cec81a102885547c939279f0e6634785
+Accept: application/json
+
+```
+
+Response:
+
+```http request
+HTTP/1.1 200 OK
+Content-Length: 20
+Content-Type: application/json
+Date: Wed, 28 Jul 2021 20:46:32 GMT
+
+{"code":37956766,"expiration":"2021-07-29T20:23:45.98591Z","user":{"username":"admin"}}}
+```
