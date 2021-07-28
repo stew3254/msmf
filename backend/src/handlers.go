@@ -114,3 +114,17 @@ func (fs HTMLStrippingFileSystem) Open(name string) (http.File, error) {
 	}
 	return file, err
 }
+
+// NotFound will return when nothing is found
+type NotFound struct{}
+
+func (NotFound) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	http.NotFound(w, r)
+}
+
+// MethodNotAllowed will return when method is not allowed
+type MethodNotAllowed struct{}
+
+func (MethodNotAllowed) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "405 method not allowed", http.StatusMethodNotAllowed)
+}
