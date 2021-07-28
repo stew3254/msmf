@@ -3,6 +3,7 @@ package routes
 import (
 	"encoding/json"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm/clause"
 	"log"
 	"math"
 	"math/rand"
@@ -17,29 +18,38 @@ import (
 
 // GetReferrals shows all active referral links
 func GetReferrals(w http.ResponseWriter, r *http.Request) {
-	// Response to send later
-	resp := make(map[string]interface{})
+	tokenCookie, _ := r.Cookie("token")
+	token := tokenCookie.Value
+
+	// See if the person has permissions to invite users in the first place
+	hasPerms := utils.CheckPermissions(&utils.PermCheck{
+		FKTable:     "perms_per_users",
+		Perms:       "invite_user",
+		PermTable:   "user_perms",
+		Search:      token,
+		SearchCol:   "token",
+		SearchTable: "users",
+	})
+
+	// Don't let a user see all referral codes at once
+	// If they really want to try, they can bruteforce the API until a GET doesn't fail
+	if !hasPerms {
+		utils.ErrorJSON(w, http.StatusForbidden, "Forbidden")
+		return
+	}
 
 	// Remove expired codes first
 	database.DB.Where("expiration < ?", time.Now()).Delete(&database.Referrer{})
 
-	referrals := make([]map[string]interface{}, 0)
-	rows, err := database.DB.Table("referrers").Select("users.username as referrer, referrers.code, referrers.expiration").Joins("inner join users on referrers.user_id = users.id").Rows()
+	var referrers []database.Referrer
+	err := database.DB.Preload(clause.Associations).Find(&referrers).Error
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		resp["error"] = err.Error()
-	} else {
-		// Populate the referrers
-		for rows.Next() {
-			row := make(map[string]interface{})
-			_ = database.DB.ScanRows(rows, &row)
-			referrals = append(referrals, row)
-		}
-		resp["referrers"] = referrals
+		utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	// Write out the body
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	utils.WriteJSON(w, http.StatusOK, &referrers)
 }
 
 // CreateReferral makes a new referral link
@@ -50,7 +60,7 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 	// Get Token
 	tokenCookie, err := r.Cookie("token")
 	// Invalid token
-	if err != nil || !utils.ValidateToken(tokenCookie.Value) {
+	if err != nil {
 		utils.ErrorJSON(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
@@ -84,17 +94,19 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 	// Loop until a valid code is found
 	for {
 		code := (rand.Int() % (int(math.Pow(10, 8)) - int(math.Pow(10, 7)-1))) + int(math.Pow(10, 7))
+		// Give user 24 hours until referral code expires
 		referral := database.Referrer{
 			Code:       code,
 			UserID:     user.ID,
-			Expiration: time.Now().Add(time.Hour * 6),
+			Expiration: time.Now().Add(24 * time.Hour),
 		}
-		result = database.DB.Create(&referral)
-		if result.Error == nil {
+		err = database.DB.Create(&referral).Error
+		if err == nil {
 			resp["status"] = "Success"
 			resp["code"] = code
 			break
 		} else {
+			// TODO fix this
 			log.Println(result.Error.Error())
 		}
 	}
@@ -116,9 +128,9 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Grab the user and referral code
-	referrer := database.Referrer{}
-	result := database.DB.Preload("Owner").First(&referrer, code)
-	if result.Error != nil {
+	var referrer database.Referrer
+	err := database.DB.Preload(clause.Associations).First(&referrer, code).Error
+	if err != nil {
 		utils.ErrorJSON(w, http.StatusNotFound, "Not Found")
 		return
 		// Handle referral expiration
@@ -128,14 +140,14 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 		utils.ErrorJSON(w, http.StatusNotFound, "Not Found")
 		return
 	} else if r.Method == "GET" {
-		resp["username"] = referrer.User.Username
-		resp["expiration"] = referrer.Expiration
+		utils.WriteJSON(w, http.StatusOK, &referrer)
+		return
 		// Must be Method POST
 	}
 
 	// Get JSON of body of POST
 	body := make(map[string]string)
-	err := json.NewDecoder(r.Body).Decode(&body)
+	err = json.NewDecoder(r.Body).Decode(&body)
 
 	// Invalid data
 	if err != nil {
@@ -158,15 +170,15 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Attempt to make the user
-	result = database.DB.Create(&database.User{
+	err = database.DB.Create(&database.User{
 		Username:   body["username"],
 		Password:   hash,
 		ReferredBy: referrer.UserID,
-	})
+	}).Error
 
 	// Owner already exists
-	if result.Error != nil {
-		utils.ErrorJSON(w, http.StatusBadRequest, result.Error.Error())
+	if err != nil {
+		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

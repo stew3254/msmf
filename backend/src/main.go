@@ -89,7 +89,7 @@ func main() {
 	// Get existing referral codes
 	api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
 	// Create new referral codes
-	api.HandleFunc("/refer/new", routes.CreateReferral).Methods("GET")
+	api.HandleFunc("/refer", routes.CreateReferral).Methods("POST")
 	// Handle referral code
 	api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "POST")
 

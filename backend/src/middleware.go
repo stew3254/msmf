@@ -60,7 +60,16 @@ func logRequest(next http.Handler) http.Handler {
 
 // checkValidUnauthenticatedRoutes simple function to return whether a route needs auth or not
 func checkValidUnauthenticatedRoutes(url string) bool {
-	return strings.HasSuffix(url, ".css") || strings.HasSuffix(url, ".js") || strings.HasSuffix(url, ".map") || url == "/" || url == "/login"
+	if strings.HasSuffix(url, ".css") ||
+		strings.HasSuffix(url, ".css") ||
+		strings.HasSuffix(url, ".js") ||
+		strings.HasSuffix(url, ".map") ||
+		(strings.HasPrefix(url, "/api/refer/") && len(url) == len("/api/refer/12345678")) ||
+		url == "/" ||
+		url == "/login" {
+		return true
+	}
+	return false
 }
 
 // checkAuthenticated Checks to see if a user is authenticated to a page before displaying
@@ -70,7 +79,7 @@ func checkAuthenticated(next http.Handler) http.Handler {
 		// Cookie not found
 		if err != nil && !checkValidUnauthenticatedRoutes(r.URL.String()) {
 			// http.Redirect(w, r, "/login", http.StatusFound)
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			http.Error(w, "401 unauthorized", http.StatusUnauthorized)
 			return
 		}
 
