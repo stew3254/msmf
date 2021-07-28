@@ -7,8 +7,15 @@ import Invite from "./Invite";
 import Register from "./Register";
 import ChangePassword from "./ChangePassword";
 import DevConsole from "./DevConsole";
+import {useEffect, useState} from "react";
 
 export default function App() {
+    const [servers, setServers] = useState([]);
+
+    useEffect(() => {
+       fetch("api/servers").then(response => response.json().then(setServers));
+    });
+
     return (
         <Router>
             <Navbar bg="dark" variant="dark">
@@ -35,7 +42,11 @@ export default function App() {
                     <div className="col-md-2">
                         <Nav variant="pills" className="flex-column sticky-top top-0">
                             <NavItem>Utilities</NavItem>
-                            <NavLink as={Link} to="/console">Console <Badge pill bg="info">dev</Badge></NavLink>
+                            {servers.map(id => {
+                                return <NavLink as={Link} to={`/console/${id}`}>
+                                    Console {id}<Badge pill bg="info">dev</Badge>
+                                </NavLink>
+                            })}
                         </Nav>
                     </div>
                     <div className="col-md-10">
@@ -52,9 +63,7 @@ export default function App() {
                             <Route path="/change-password">
                                 <ChangePassword/>
                             </Route>
-                            <Route path="/console">
-                                <DevConsole/>
-                            </Route>
+                            <Route path="/console/:serverId" component={DevConsole}/>
                             <Route path="/">
                                 <Home/>
                             </Route>
