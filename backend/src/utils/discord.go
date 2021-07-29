@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/gorilla/websocket"
 	"log"
 	"msmf/database"
 	"net/http"
@@ -100,6 +101,54 @@ func sendRequest(client *http.Client, url string, count *int, body *map[string]s
 
 			time.Sleep(time.Duration(data["retry_after"].(float64)) * time.Millisecond)
 		}
+	}
+}
+
+func RunDiscordIntegration(connDetails *ConnDetails, serverID int) {
+	// See if there is a discord integration
+	var integration database.DiscordIntegration
+	err := database.DB.Where("server_id = ?", serverID).Find(&integration).Error
+	// If there is no error continue
+	if err == nil {
+		// See if we are supposed to use it and that it's a webhook
+		if integration.Active && integration.Type == "webhook" {
+			// Create a fake connection
+			discord := &websocket.Conn{}
+			discord = nil
+
+			// Make the channels for stdin and stdout
+			pipes := PipeChans{
+				// A lot of messages might clog this up because of rate limiting
+				StdoutChan: make(chan []byte, 20),
+				StderrChan: make(chan []byte, 5),
+			}
+
+			// Register with the SPMC
+			connDetails.SLock.Lock()
+			connDetails.SPMC[discord] = pipes
+			connDetails.SLock.Unlock()
+
+			// Go handle the integration
+			log.Println("Webhook")
+			go SendWebhook(integration, pipes)
+		}
+	}
+}
+
+// StopDiscordIntegration will kill a running integration
+func StopDiscordIntegration(serverID int) {
+	connDetails := AttachServer(serverID)
+
+	// Get the pipes to the Discord integration connection and remove it from the map
+	connDetails.SLock.Lock()
+	pipes, exists := connDetails.SPMC[nil]
+	delete(connDetails.SPMC, nil)
+	connDetails.SLock.Unlock()
+
+	// Close the pipes so they stop trying to read
+	if exists {
+		close(pipes.StdoutChan)
+		close(pipes.StderrChan)
 	}
 }
 

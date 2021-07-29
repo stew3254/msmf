@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 // Specify amount of data that can be read from a websocket at a time
@@ -52,56 +51,14 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// See if server console has already been attached
-	var conn *websocket.Conn
-	utils.ServerLock.Lock()
-	connDetails, exists := utils.AttachedServers[serverID]
-	// If we haven't already attached a server
-	if !exists {
-		// Attach the server console
-		console, err := utils.AttachServer(utils.ServerName(serverID))
-		if err != nil {
-			// Don't forget to unlock
-			utils.ServerLock.Unlock()
+	// Get the connection details
+	connDetails := utils.AttachServer(serverID)
 
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Create the ConnChan struct
-		connDetails = &utils.ConnDetails{
-			MChan:   make(chan []byte, 5), // Take up to 5 messages before blocking
-			SPMC:    make(map[*websocket.Conn]utils.PipeChans),
-			SLock:   &sync.Mutex{},
-			ErrChan: make(chan error, 1),
-			Pipes:   console,
-		}
-
-		// Add it into the map
-		utils.AttachedServers[serverID] = connDetails
-
-		// Remember to unlock
-		utils.ServerLock.Unlock()
-
-		// Upgrade the http connection to a websocket
-		conn, err = upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Set up the framework for now handling the attachment of the server pipes to go channels
-		utils.ServerConsole(connDetails, console)
-	} else {
-		// Remember to unlock
-		utils.ServerLock.Unlock()
-
-		// Upgrade the http connection to a websocket
-		conn, err = upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	// Upgrade the http connection to a websocket
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	// Make the channels for stdin and stdout
@@ -113,6 +70,7 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 	// Register with the SPMC
 	connDetails.SLock.Lock()
 	connDetails.SPMC[conn] = pipes
+	log.Println(connDetails.SPMC)
 	connDetails.SLock.Unlock()
 
 	// Now that the server is attached and handlers are running, link websocket

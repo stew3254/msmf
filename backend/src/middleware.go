@@ -100,6 +100,18 @@ func checkAuthenticated(next http.Handler) http.Handler {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
+		// Increase token expiration if it needs it
+		var user database.User
+		database.DB.Where("token = ?", tokenCookie.Value).Find(&user)
+		now := time.Now()
+
+		// See if the token expires in less than 2 hours
+		if now.Add(2 * time.Hour).After(user.TokenExpiration) {
+			// Give them another 6 hours from now if that's the case
+			user.TokenExpiration = now.Add(6 * time.Hour)
+			database.DB.Save(&user)
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }
