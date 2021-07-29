@@ -2,11 +2,9 @@ package routes
 
 import (
 	"encoding/json"
-	"log"
 	"msmf/database"
 	"msmf/utils"
 	"net/http"
-	"strings"
 )
 
 func checkIntPerms(w http.ResponseWriter, r *http.Request) bool {
@@ -60,28 +58,35 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get JSON of body of PUT
-	body := make(map[string]string)
+	body := make(map[string]interface{})
 	err = json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Make sure the type url exists
-	integrationType, exists := body["type"]
-	if !exists {
-		utils.ErrorJSON(w, http.StatusBadRequest, "Must supply an integration type")
-		return
-	} else if integrationType != "webhook" {
-		utils.ErrorJSON(w, http.StatusBadRequest, "Can only support type \"webhook\"")
+	// Make sure integration type exists
+	var integrationType string
+	switch body["type"].(type) {
+	case string:
+		integrationType = body["type"].(string)
+		if integrationType != "webhook" {
+			utils.ErrorJSON(w, http.StatusBadRequest, "Can only support type \"webhook\"")
+			return
+		}
+	default:
+		utils.ErrorJSON(w, http.StatusBadRequest, "Must supply a valid integration type")
 		return
 	}
 
 	// Make sure the discord url exists
 	// TODO actually check to see if this is a valid webhook
-	discord, exists := body["discord_url"]
-	if !exists {
-		utils.ErrorJSON(w, http.StatusBadRequest, "Must supply a discord url")
+	var discord string
+	switch body["discord_url"].(type) {
+	case string:
+		discord = body["discord_url"].(string)
+	default:
+		utils.ErrorJSON(w, http.StatusBadRequest, "Must supply a valid url")
 		return
 	}
 
@@ -90,40 +95,75 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 	database.DB.Where("server_id = ?", serverID).Find(&integration)
 
 	// If the integration doesn't really exist
-	if *integration.ServerID != serverID {
+	if integration.ServerID == nil {
 		// Create the integration
 		integration = database.DiscordIntegration{
 			Type:       integrationType,
 			DiscordURL: discord,
+			Username:   &server.Name,
 			Active:     false,
 			Server:     server,
 		}
 		// Create an integration to start
 		database.DB.Create(&integration)
+	} else {
+		// Make the changes
+		integration.Type = integrationType
+		integration.DiscordURL = discord
 	}
 
 	// See if the integration should not be active
-	active, exists := body["active"]
-	log.Println(active)
-	if exists && strings.ToLower(active) != "true" {
-		integration.Active = false
-	} else {
-		integration.Active = true
+	active := false
+	value, exists := body["active"]
+	if exists {
+		switch value.(type) {
+		case bool:
+			active = value.(bool)
+		default:
+			utils.ErrorJSON(w, http.StatusBadRequest, "Active must be of type bool")
+			return
+		}
 	}
 
+	if integration.Active == false && active == true {
+		// Integration wasn't started before, but should be now, so start it
+		connDetails := utils.AttachServer(serverID)
+		database.DB.Table("discord_integrations").Where(
+			"server_id = ?", serverID,
+		).Update("active", true)
+		utils.RunDiscordIntegration(connDetails, serverID)
+	} else if integration.Active == true && active == false {
+		// Integration was started before, but shouldn't be now, so stop it
+		utils.StopDiscordIntegration(serverID)
+	}
+
+	// Set the integration to the new active value
+	integration.Active = active
+
 	// Get the username if it exists
-	name, exists := body["username"]
+	var name string
+	value, exists = body["username"]
 	if exists {
-		integration.Username = &name
-	} else {
-		// Add server name otherwise
-		integration.Username = &server.Name
+		switch value.(type) {
+		// Add the integration username if it exists
+		case string:
+			name = value.(string)
+			integration.Username = &name
+		default:
+		}
 	}
 
 	// Get the avatar url if it exists
-	avatar, exists := body["avatar_url"]
+	var avatar string
+	value, exists = body["avatar_url"]
 	if exists {
-		integration.AvatarURL = &avatar
+		switch value.(type) {
+		// Add the integration username if it exists
+		case string:
+			avatar = value.(string)
+			integration.AvatarURL = &avatar
+		default:
+		}
 	}
 
 	// Save the integration

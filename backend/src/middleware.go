@@ -60,7 +60,16 @@ func logRequest(next http.Handler) http.Handler {
 
 // checkValidUnauthenticatedRoutes simple function to return whether a route needs auth or not
 func checkValidUnauthenticatedRoutes(url string) bool {
-	return strings.HasSuffix(url, ".css") || strings.HasSuffix(url, ".js") || strings.HasSuffix(url, ".map") || url == "/" || url == "/login"
+	if strings.HasSuffix(url, ".css") ||
+		strings.HasSuffix(url, ".css") ||
+		strings.HasSuffix(url, ".js") ||
+		strings.HasSuffix(url, ".map") ||
+		(strings.HasPrefix(url, "/api/refer/") && len(url) == len("/api/refer/12345678")) ||
+		url == "/" ||
+		url == "/login" {
+		return true
+	}
+	return false
 }
 
 // checkAuthenticated Checks to see if a user is authenticated to a page before displaying
@@ -70,7 +79,7 @@ func checkAuthenticated(next http.Handler) http.Handler {
 		// Cookie not found
 		if err != nil && !checkValidUnauthenticatedRoutes(r.URL.String()) {
 			// http.Redirect(w, r, "/login", http.StatusFound)
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			http.Error(w, "401 unauthorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -91,6 +100,18 @@ func checkAuthenticated(next http.Handler) http.Handler {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
+		// Increase token expiration if it needs it
+		var user database.User
+		database.DB.Where("token = ?", tokenCookie.Value).Find(&user)
+		now := time.Now()
+
+		// See if the token expires in less than 2 hours
+		if now.Add(2 * time.Hour).After(user.TokenExpiration) {
+			// Give them another 6 hours from now if that's the case
+			user.TokenExpiration = now.Add(6 * time.Hour)
+			database.DB.Save(&user)
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }

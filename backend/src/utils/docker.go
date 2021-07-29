@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"io"
@@ -84,26 +83,25 @@ func ServerConsole(connDetails *ConnDetails, console Console) {
 				}
 			// Handle errors received from any of the pipes by closing all of them and cleaning up
 			// TODO see if we can recover from these
-			case _ = <-connDetails.ErrChan:
+			case err := <-connDetails.ErrChan:
+				// Update the database to say that this server is stopped
+				database.DB.Model(&database.Server{}).Where(
+					"servers.id = ?", connDetails.ServerID,
+				).Update("running", false)
+
+				// Server closed normally
+				if err == io.EOF {
+					log.Printf("Server %d closed gracefully\n", connDetails.ServerID)
+					return
+				}
+
 				// Best effort to try to close the pipes, could already be closed
 				_ = console.Stdin.Close()
 				_ = console.Stdout.Close()
 				_ = console.Stderr.Close()
 
-				// Delete this server from the servers attached. Since these pipes died, the server
-				// is now down. If anything was previously attached, it's dead now anyways
-				ServerLock.Lock()
-				// If this key doesn't exist it doesn't matter
-				delete(AttachedServers, connDetails.ServerID)
-				ServerLock.Unlock()
-
-				// Update the database to say that this server is no longer started
-				database.DB.Model(&database.Server{}).Where(
-					"servers.id = ?", connDetails.ServerID,
-				).Update("running", false)
-
 				// Make sure to kill the docker server in case it didn't already die
-				log.Println("Stopping the server due to crash")
+				log.Printf("Stopping server %d due to crash\n", connDetails.ServerID)
 				_ = StopServer(connDetails.ServerID)
 
 				// We are done, kill this function
@@ -146,6 +144,9 @@ func ServerConsole(connDetails *ConnDetails, console Console) {
 			}
 			connDetails.SLock.Unlock()
 		}
+
+		// Tell the stdin listener to do the graceful shutdown
+		connDetails.ErrChan <- io.EOF
 	}
 
 	// Run readers for stdout and stderr
@@ -260,50 +261,19 @@ func StartServer(serverID int) (err error) {
 		return err
 	}
 
-	// Create the ConnChan struct
-	connDetails := &ConnDetails{
-		MChan:   make(chan []byte, 5), // Take up to 5 messages before blocking
-		SPMC:    make(map[*websocket.Conn]PipeChans),
-		SLock:   &sync.Mutex{},
-		ErrChan: make(chan error, 1),
-		Pipes:   console,
-	}
+	// Get the connection details
+	connDetails := AttachServer(serverID)
 
-	// Add it into the map
+	// Add the console to the server
 	ServerLock.Lock()
-	AttachedServers[serverID] = connDetails
+	connDetails.Pipes = console
 	ServerLock.Unlock()
 
 	// Set up the framework for now handling the attachment of the server pipes to go channels
 	ServerConsole(connDetails, console)
 
-	// See if there is a discord integration
-	var integration database.DiscordIntegration
-	err = database.DB.Where("server_id = ?", serverID).Find(&integration).Error
-	// If there is no error continue
-	if err == nil {
-		// See if we are supposed to use it and that it's a webhook
-		if integration.Active && integration.Type == "webhook" {
-			// Create a fake connection
-			discord := &websocket.Conn{}
-			discord = nil
-
-			// Make the channels for stdin and stdout
-			pipes := PipeChans{
-				// A lot of messages might clog this up because of rate limiting
-				StdoutChan: make(chan []byte, 20),
-				StderrChan: make(chan []byte, 5),
-			}
-
-			// Register with the SPMC
-			connDetails.SLock.Lock()
-			connDetails.SPMC[discord] = pipes
-			connDetails.SLock.Unlock()
-
-			// Go handle the integration
-			go SendWebhook(integration, pipes)
-		}
-	}
+	// Start Discord integration if it needs to
+	RunDiscordIntegration(connDetails, serverID)
 
 	// Start the server
 	err = cmd.Start()
@@ -320,48 +290,33 @@ func StopServer(serverID int) (err error) {
 	return err
 }
 
-// AttachServer attaches to the docker container and returns its pipes
-func AttachServer(name string) (console Console, err error) {
-	// See if the server is running
-	running := false
-	servers := GetGameServers(true)
-	for _, server := range servers {
-		if server == name {
-			running = true
-		}
-	}
-	if !running {
-		return Console{}, errors.New("cannot attach to a server that isn't running")
-	}
+// AttachServer will return a ConnDetails mapping relevant to this server and add it to the
+// AttachedServers map if it isn't already in there
+func AttachServer(serverID int) (connDetails *ConnDetails) {
+	// See if the connDetails exist
+	var exists bool
+	ServerLock.Lock()
+	connDetails, exists = AttachedServers[serverID]
+	ServerLock.Unlock()
 
-	// Try to attach to the server
-	var cmdSlice []string
-	cmdSlice = append([]string{
-		"docker",
-		"attach",
-		name,
-	})
-	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
-
-	// Get stdin pipe
-	console.Stdin, err = cmd.StdinPipe()
-	if err != nil {
-		return console, err
+	// ConnDetails exists
+	if exists {
+		return connDetails
 	}
 
-	// Get stdout pipe
-	console.Stdout, err = cmd.StdoutPipe()
-	if err != nil {
-		return console, err
+	// Create the ConnDetails struct
+	connDetails = &ConnDetails{
+		ServerID: serverID,
+		MChan:    make(chan []byte, 5), // Take up to 5 messages before blocking
+		SPMC:     make(map[*websocket.Conn]PipeChans),
+		SLock:    &sync.Mutex{},
+		ErrChan:  make(chan error, 1),
 	}
 
-	// Get stderr pipe
-	console.Stderr, err = cmd.StderrPipe()
-	if err != nil {
-		return console, err
-	}
+	// Add it into the map
+	ServerLock.Lock()
+	AttachedServers[serverID] = connDetails
+	ServerLock.Unlock()
 
-	// Start the server
-	err = cmd.Start()
-	return console, err
+	return connDetails
 }
