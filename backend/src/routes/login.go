@@ -2,6 +2,7 @@ package routes
 
 import (
 	"net/http"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -24,9 +25,16 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if bcrypt.CompareHashAndPassword(user.Password, []byte(passwd)) == nil {
-		// Save token
-		user.Token, user.TokenExpiration = utils.GenerateToken()
-		database.DB.Save(&user)
+		// See if a token already exists that isn't expired
+		now := time.Now()
+		if now.Before(user.TokenExpiration) {
+			// Set the expiration to 6 hours from now and return the old token
+			user.TokenExpiration = now.Add(6 * time.Hour)
+		} else {
+			// Make a new token
+			user.Token, user.TokenExpiration = utils.GenerateToken()
+			database.DB.Save(&user)
+		}
 
 		http.SetCookie(w, &http.Cookie{
 			Name:     "token",
