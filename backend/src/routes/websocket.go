@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Specify amount of data that can be read from a websocket at a time
@@ -70,8 +71,19 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 	// Register with the SPMC
 	connDetails.SLock.Lock()
 	connDetails.SPMC[conn] = pipes
-	log.Println(connDetails.SPMC)
 	connDetails.SLock.Unlock()
+
+	// Make sure to keep the websocket connection alive by pinging every 5 seconds
+	go func(conn *websocket.Conn) {
+		for {
+			time.Sleep(5 * time.Second)
+			err := conn.WriteMessage(websocket.PingMessage, []byte("Keep alive!"))
+			if err != nil {
+				// Kill this function, the websocket is dead
+				return
+			}
+		}
+	}(conn)
 
 	// Now that the server is attached and handlers are running, link websocket
 

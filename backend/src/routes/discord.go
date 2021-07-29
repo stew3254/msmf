@@ -2,7 +2,6 @@ package routes
 
 import (
 	"encoding/json"
-	"log"
 	"msmf/database"
 	"msmf/utils"
 	"net/http"
@@ -125,8 +124,6 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	log.Println(integration.Active, active)
 
 	if integration.Active == false && active == true {
 		// Integration wasn't started before, but should be now, so start it

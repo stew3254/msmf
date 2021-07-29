@@ -129,7 +129,6 @@ func RunDiscordIntegration(connDetails *ConnDetails, serverID int) {
 			connDetails.SLock.Unlock()
 
 			// Go handle the integration
-			log.Println("Webhook")
 			go SendWebhook(integration, pipes)
 		}
 	}

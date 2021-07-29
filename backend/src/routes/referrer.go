@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm/clause"
-	"log"
 	"math"
 	"math/rand"
 	"net/http"
@@ -107,7 +106,8 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 			break
 		} else {
 			// TODO fix this
-			log.Println(result.Error.Error())
+			utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+			return
 		}
 	}
 
