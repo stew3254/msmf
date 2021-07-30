@@ -307,6 +307,30 @@ permission
 
 #### Format
 
+Submit a JSON POST request to `/api/server` with the following required
+parameters:
+
+* `name` - This is the name of your server. You must not have this name for any
+  other servers you own.
+* `game` - This is the game your server is for. Currently, the only supported
+  game is 'Minecraft'.
+* `port` - This is the port your server is accessible on. These must not
+  conflict with any other ports reserved to other servers.
+
+The following parameters are optional, but can potentially change the way the
+server is created:
+
+* `version` - This is the version tag of the game you are playing. This is
+  important if you play games like Minecraft where you may want mods on versions
+  that are incompatible with the latest edition.
+
+The post body may also contain optional parameters which will be passed in as
+environmental variables at the time of creation. In the case of Minecraft for
+example, if you passed in the key `memory` with the value `2G`, that would add
+the environmental variable `MEMORY=2G` to the container to give your server more
+RAM. To know whether you should add environmental variables or not, look up the
+documentation of the container being used to host the server per game.
+
 ### Example
 
 Request:
@@ -338,11 +362,120 @@ Date: Thu, 29 Jul 2021 01:18:43 GMT
 }
 ```
 
-TODO Finish this
-
 ### Viewing Servers
 
-TODO Finish this
+To view a server, you must meet any of the following conditions:
+
+* You are the owner of a server
+* You have any server level permission for that server
+* You have any of the following user level permissions:
+    * `administrator`
+    * `manage_server_permission`
+    * `delete_server`
+
+If you do not meet any of these requirements, you will get an HTTP Status Not
+Found error when trying to look at a server directly, and this server will not
+show up in the all servers listing.
+
+### Structure:
+
+Here is a top-down view of the server object.
+
+* `id` - The unique identifier of the server. You'll see this number in the url.
+* `port` - The port the server can be accessed on. This is unique.
+* `name` - The name of the server. There can be more than one server named the
+  same thing, but each user can only use a specific name once.
+* `running` - Whether the server is currently running or not.
+* `game` - The game the server is made for.
+    * `name` - The name of the game the server is.
+* `owner` - The owner of the server.
+    * `name` - The name of the owner of the server.
+* `version` - The version of the server if it is relevant
+    * `tag` - The version tag
+
+#### Format:
+
+To view all servers, submit a GET request to `/api/server`. You can specify the
+column you would like to order on by using the `order_by` query string
+parameter. If you would then like to reverse the ordering, set
+`reverse=true` in the query string
+
+#### Examples:
+
+```http request
+GET /api/server HTTP/1.1
+Host: localhost:8080
+Cookie: token=6bbae15cc44adf688331c21c66670dfd40469dedf9a29e8e45ad0440dbb6db2a
+Accept: application/json
+
+```
+
+Response:
+
+```http request
+HTTP/1.1 200 OK
+Content-Length: 139
+Content-Type: application/json
+Date: Fri, 30 Jul 2021 20:46:36 GMT
+
+[
+  {
+    "id": 1,
+    "port": 25565,
+    "name": "Vanilla",
+    "running": false,
+    "game": {
+      "name": ""
+    },
+    "owner": {
+      "username": ""
+    },
+    "version": {
+      "tag": "",
+      "game": {
+        "name": ""
+      }
+    }
+  }
+]
+```
+
+Viewing a single server:
+
+```http request
+GET /api/server/1 HTTP/1.1
+Host: localhost:8080
+Cookie: token=6bbae15cc44adf688331c21c66670dfd40469dedf9a29e8e45ad0440dbb6db2a
+Accept: application/json
+```
+
+Response:
+
+```http request
+HTTP/1.1 200 OK
+Content-Length: 157
+Content-Type: application/json
+Date: Fri, 30 Jul 2021 20:48:28 GMT
+
+{
+  "id": 1,
+  "port": 25565,
+  "name": "Vanilla",
+  "running": false,
+  "game": {
+    "name": "Minecraft"
+  },
+  "owner": {
+    "username": "admin"
+  },
+  "version": {
+    "tag": "1.16.5",
+    "game": {
+      "name": ""
+    }
+  }
+}
+```
 
 ### Updating Servers
 
