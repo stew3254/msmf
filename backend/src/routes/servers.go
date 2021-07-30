@@ -131,23 +131,26 @@ func runServer(w http.ResponseWriter, r *http.Request, action string) {
 		return
 	}
 	var err error
+
+	// Get the server id
+	serverID := getServer(r.URL.String())
 	if action == "start" {
-		err = utils.StartServer(getServer(r.URL.String()))
+		err = utils.StartServer(serverID, true)
 	} else if action == "stop" {
-		err = utils.StopServer(getServer(r.URL.String()))
+		err = utils.StopServer(serverID, true)
 	} else {
 		// Ignore the first since if there was a problem the second would catch it anyways
-		_ = utils.StopServer(getServer(r.URL.String()))
-		err = utils.StartServer(getServer(r.URL.String()))
+		lock := utils.GetLock(serverID)
+		lock.Lock()
+		_ = utils.StopServer(serverID, false)
+		err = utils.StartServer(serverID, false)
+		lock.Unlock()
 	}
 
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	// Get server id
-	serverID := getServer(r.URL.String())
 
 	// Update the running status in the db
 	if action == "stop" {
