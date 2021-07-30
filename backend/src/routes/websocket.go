@@ -73,17 +73,28 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 	connDetails.SPMC[conn] = pipes
 	connDetails.SLock.Unlock()
 
-	// Make sure to keep the websocket connection alive by pinging every 5 seconds
-	go func(conn *websocket.Conn) {
-		for {
-			time.Sleep(5 * time.Second)
-			err := conn.WriteMessage(websocket.PingMessage, []byte("Keep alive!"))
+	// Set the ping handler to handle adding no-repeat as well
+	conn.SetPingHandler(func(data string) error {
+		if data == "no-repeat" {
+			// Add the connection to the no repeat map
+			connDetails.SLock.Lock()
+			connDetails.NoRepeat[conn] = pipes
+			connDetails.SLock.Unlock()
+		} else if data == "repeat" {
+			// Remove the connection from the no repeat map
+			connDetails.SLock.Lock()
+			delete(connDetails.NoRepeat, conn)
+			connDetails.SLock.Unlock()
+		} else {
+			// Send back pong message
+			err = conn.WriteControl(websocket.PongMessage, []byte("Pong!"),
+				time.Now().Add(5*time.Minute))
 			if err != nil {
-				// Kill this function, the websocket is dead
-				return
+				return err
 			}
 		}
-	}(conn)
+		return nil
+	})
 
 	// Now that the server is attached and handlers are running, link websocket
 
@@ -118,9 +129,10 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 			data = append(data, byte('\n'))
 			if err != nil {
 				log.Println("websocket err:", err)
-				// Lock to remove this connection from the SPMC and clean up
+				// Lock to remove this connection from the SPMC and No Repeat and clean up
 				connDetails.SLock.Lock()
 				delete(connDetails.SPMC, conn)
+				delete(connDetails.NoRepeat, conn)
 				connDetails.SLock.Unlock()
 				// Best effort close the connection since something is wrong
 				_ = conn.Close()
@@ -133,8 +145,10 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 				// This is important so everyone gets to see the same console state
 				connDetails.SLock.Lock()
 				for c, pipes := range connDetails.SPMC {
-					// This should be the discord socket and ignore that
-					if c != nil {
+					// If a connection is not in no repeat, send the message
+					_, exists := connDetails.NoRepeat[c]
+					log.Println(c)
+					if !exists || (c != nil && conn != c) {
 						pipes.StdoutChan <- data
 					}
 				}
