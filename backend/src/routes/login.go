@@ -15,7 +15,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	passwd := r.FormValue("password")
 
-	user := database.User{}
+	var user database.User
 
 	// Create a response to send back to the user
 	err := database.DB.Where("username = ?", username).Find(&user).Error

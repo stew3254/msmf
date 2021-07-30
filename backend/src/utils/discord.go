@@ -123,9 +123,10 @@ func RunDiscordIntegration(connDetails *ConnDetails, serverID int) {
 				StderrChan: make(chan []byte, 5),
 			}
 
-			// Register with the SPMC
+			// Register with the SPMC and NoRepeat
 			connDetails.SLock.Lock()
 			connDetails.SPMC[discord] = pipes
+			connDetails.NoRepeat[discord] = pipes
 			connDetails.SLock.Unlock()
 
 			// Go handle the integration
@@ -140,6 +141,8 @@ func StopDiscordIntegration(serverID int) {
 
 	// Get the pipes to the Discord integration connection and remove it from the map
 	connDetails.SLock.Lock()
+	pipes, _ := connDetails.NoRepeat[nil]
+	delete(connDetails.NoRepeat, nil)
 	pipes, exists := connDetails.SPMC[nil]
 	delete(connDetails.SPMC, nil)
 	connDetails.SLock.Unlock()

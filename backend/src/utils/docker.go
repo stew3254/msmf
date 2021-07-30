@@ -44,7 +44,11 @@ type ConnDetails struct {
 	// SPMC - Single Producer Multiple Consumer
 	// This will connect a single instance of stdout/stderr on a server to multiple websockets
 	SPMC map[*websocket.Conn]PipeChans
-	// Lock for access to the SPMC
+
+	// Same as SPMC, except this will contain all of the connections that do not want stdin sent back
+	NoRepeat map[*websocket.Conn]PipeChans
+
+	// Lock for access to the SPMC and NoRepeat
 	SLock *sync.Mutex
 
 	// A channel for errors so we know to shut down all go routines related and clean up
@@ -134,7 +138,8 @@ func ServerConsole(connDetails *ConnDetails, console Console) {
 			// Only one producer can do this at a time
 			// This ensures everyone gets their messages in the same order
 			connDetails.SLock.Lock()
-			// Look through the whole map and send the data on all of the corresponding channels
+
+			// Look through the whole map and send the data on all the corresponding channels
 			for _, pipes := range connDetails.SPMC {
 				if isStdout {
 					pipes.StdoutChan <- data
@@ -142,6 +147,7 @@ func ServerConsole(connDetails *ConnDetails, console Console) {
 					pipes.StderrChan <- data
 				}
 			}
+
 			connDetails.SLock.Unlock()
 		}
 
@@ -309,6 +315,7 @@ func AttachServer(serverID int) (connDetails *ConnDetails) {
 		ServerID: serverID,
 		MChan:    make(chan []byte, 5), // Take up to 5 messages before blocking
 		SPMC:     make(map[*websocket.Conn]PipeChans),
+		NoRepeat: make(map[*websocket.Conn]PipeChans),
 		SLock:    &sync.Mutex{},
 		ErrChan:  make(chan error, 1),
 	}
