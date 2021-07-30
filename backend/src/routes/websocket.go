@@ -53,7 +53,7 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the connection details
-	connDetails := utils.AttachServer(serverID)
+	connDetails, _ := utils.AttachServer(serverID, nil)
 
 	// Upgrade the http connection to a websocket
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -147,7 +147,6 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 				for c, pipes := range connDetails.SPMC {
 					// If a connection is not in no repeat, send the message
 					_, exists := connDetails.NoRepeat[c]
-					log.Println(c)
 					if !exists || (c != nil && conn != c) {
 						pipes.StdoutChan <- data
 					}

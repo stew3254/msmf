@@ -45,7 +45,7 @@ type ConnDetails struct {
 	// This will connect a single instance of stdout/stderr on a server to multiple websockets
 	SPMC map[*websocket.Conn]PipeChans
 
-	// Same as SPMC, except this will contain all of the connections that do not want stdin sent back
+	// Same as SPMC, except this will contain all the connections that do not want stdin sent back
 	NoRepeat map[*websocket.Conn]PipeChans
 
 	// Lock for access to the SPMC and NoRepeat
@@ -56,7 +56,7 @@ type ConnDetails struct {
 	ErrChan chan error
 
 	// A place to store all of the server pipes. Guard them well because if they die the server crashes
-	Pipes Console
+	Pipes *Console
 }
 
 // AttachedServers attaches the MPSC and SPMC per server
@@ -95,6 +95,9 @@ func ServerConsole(connDetails *ConnDetails, console Console) {
 
 				// Server closed normally
 				if err == io.EOF {
+					// Remove the pipes from the console
+					connDetails.Pipes = nil
+
 					log.Printf("Server %d closed gracefully\n", connDetails.ServerID)
 					return
 				}
@@ -103,6 +106,10 @@ func ServerConsole(connDetails *ConnDetails, console Console) {
 				_ = console.Stdin.Close()
 				_ = console.Stdout.Close()
 				_ = console.Stderr.Close()
+
+				// Remove the pipes from the console
+				connDetails.Pipes = nil
+				log.Println("Here")
 
 				// Make sure to kill the docker server in case it didn't already die
 				log.Printf("Stopping server %d due to crash\n", connDetails.ServerID)
@@ -268,21 +275,19 @@ func StartServer(serverID int) (err error) {
 	}
 
 	// Get the connection details
-	connDetails := AttachServer(serverID)
+	connDetails, exists := AttachServer(serverID, &console)
+	if !exists {
+		// Set up the framework for now handling the attachment of the server pipes to go channels
+		ServerConsole(connDetails, console)
 
-	// Add the console to the server
-	ServerLock.Lock()
-	connDetails.Pipes = console
-	ServerLock.Unlock()
+		// Start Discord integration if it needs to
+		RunDiscordIntegration(connDetails, serverID)
 
-	// Set up the framework for now handling the attachment of the server pipes to go channels
-	ServerConsole(connDetails, console)
+		// Start the server
+		err = cmd.Start()
+	}
 
-	// Start Discord integration if it needs to
-	RunDiscordIntegration(connDetails, serverID)
-
-	// Start the server
-	err = cmd.Start()
+	// If it already exists don't bother starting the server
 	return err
 }
 
@@ -297,17 +302,24 @@ func StopServer(serverID int) (err error) {
 }
 
 // AttachServer will return a ConnDetails mapping relevant to this server and add it to the
-// AttachedServers map if it isn't already in there
-func AttachServer(serverID int) (connDetails *ConnDetails) {
+// AttachedServers map if it isn't already in there.
+// It also returns whether the console exists or not, not the connDetails struct in the map
+func AttachServer(serverID int, console *Console) (connDetails *ConnDetails, exists bool) {
 	// See if the connDetails exist
-	var exists bool
 	ServerLock.Lock()
 	connDetails, exists = AttachedServers[serverID]
-	ServerLock.Unlock()
 
 	// ConnDetails exists
 	if exists {
-		return connDetails
+		// Ignore request to add pipes if it's already nil
+		if connDetails.Pipes == nil {
+			connDetails.Pipes = console
+			ServerLock.Unlock()
+			return connDetails, false
+		}
+		ServerLock.Unlock()
+
+		return connDetails, true
 	}
 
 	// Create the ConnDetails struct
@@ -318,12 +330,12 @@ func AttachServer(serverID int) (connDetails *ConnDetails) {
 		NoRepeat: make(map[*websocket.Conn]PipeChans),
 		SLock:    &sync.Mutex{},
 		ErrChan:  make(chan error, 1),
+		Pipes:    console,
 	}
 
 	// Add it into the map
-	ServerLock.Lock()
 	AttachedServers[serverID] = connDetails
 	ServerLock.Unlock()
 
-	return connDetails
+	return connDetails, false
 }

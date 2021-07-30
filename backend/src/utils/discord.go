@@ -116,28 +116,35 @@ func RunDiscordIntegration(connDetails *ConnDetails, serverID int) {
 			discord := &websocket.Conn{}
 			discord = nil
 
-			// Make the channels for stdin and stdout
-			pipes := PipeChans{
-				// A lot of messages might clog this up because of rate limiting
-				StdoutChan: make(chan []byte, 20),
-				StderrChan: make(chan []byte, 5),
-			}
-
-			// Register with the SPMC and NoRepeat
 			connDetails.SLock.Lock()
-			connDetails.SPMC[discord] = pipes
-			connDetails.NoRepeat[discord] = pipes
-			connDetails.SLock.Unlock()
+			// See if fake connection already exists
+			_, exists := connDetails.SPMC[discord]
+			// If the connection doesn't exist, spin off a Discord integration
+			if !exists {
+				// Make the channels for stdin and stdout
+				pipes := PipeChans{
+					// A lot of messages might clog this up because of rate limiting
+					StdoutChan: make(chan []byte, 20),
+					StderrChan: make(chan []byte, 5),
+				}
 
-			// Go handle the integration
-			go SendWebhook(integration, pipes)
+				// Register with the SPMC and NoRepeat
+				connDetails.SPMC[discord] = pipes
+				connDetails.NoRepeat[discord] = pipes
+				connDetails.SLock.Unlock()
+
+				// Go handle the integration
+				go SendWebhook(integration, pipes)
+			}
+			// If it already exists, do nothing
+			connDetails.SLock.Unlock()
 		}
 	}
 }
 
 // StopDiscordIntegration will kill a running integration
 func StopDiscordIntegration(serverID int) {
-	connDetails := AttachServer(serverID)
+	connDetails, _ := AttachServer(serverID, nil)
 
 	// Get the pipes to the Discord integration connection and remove it from the map
 	connDetails.SLock.Lock()
