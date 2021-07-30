@@ -288,7 +288,19 @@ func StartServer(serverID int, shouldLock bool) (err error) {
 	}
 
 	name := ServerName(serverID)
-	cmd := exec.Command("docker", "start", "-i", name)
+
+	// Start the server
+	cmd := exec.Command("docker", "start", name)
+	err = cmd.Run()
+	if err != nil {
+		if shouldLock {
+			lock.Unlock()
+		}
+		return err
+	}
+
+	// Attach the server
+	cmd = exec.Command("docker", "attach", name)
 
 	// Create the console
 	var console Console
