@@ -35,8 +35,14 @@ func main() {
 		// Run them as goroutines so the serer start up is faster
 		go func(server database.Server) {
 			log.Printf("Restarting server %d since it is supposed to be started", *server.ID)
-			_ = utils.StopServer(*server.ID)
-			err := utils.StartServer(*server.ID)
+
+			// Lock on restart
+			lock := utils.GetLock(*server.ID)
+			lock.Lock()
+			_ = utils.StopServer(*server.ID, false)
+			err := utils.StartServer(*server.ID, false)
+			lock.Unlock()
+
 			// TODO come up with a solution to remedy this
 			if err != nil {
 				log.Printf("Server %d no longer exists in docker\n", *server.ID)

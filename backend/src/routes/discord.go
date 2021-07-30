@@ -127,7 +127,7 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 
 	if integration.Active == false && active == true {
 		// Integration wasn't started before, but should be now, so start it
-		connDetails := utils.AttachServer(serverID)
+		connDetails, _ := utils.AttachServer(serverID, nil)
 		database.DB.Table("discord_integrations").Where(
 			"server_id = ?", serverID,
 		).Update("active", true)

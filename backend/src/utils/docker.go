@@ -45,7 +45,7 @@ type ConnDetails struct {
 	// This will connect a single instance of stdout/stderr on a server to multiple websockets
 	SPMC map[*websocket.Conn]PipeChans
 
-	// Same as SPMC, except this will contain all of the connections that do not want stdin sent back
+	// Same as SPMC, except this will contain all the connections that do not want stdin sent back
 	NoRepeat map[*websocket.Conn]PipeChans
 
 	// Lock for access to the SPMC and NoRepeat
@@ -56,7 +56,7 @@ type ConnDetails struct {
 	ErrChan chan error
 
 	// A place to store all of the server pipes. Guard them well because if they die the server crashes
-	Pipes Console
+	Pipes *Console
 }
 
 // AttachedServers attaches the MPSC and SPMC per server
@@ -65,14 +65,30 @@ var AttachedServers = make(map[int]*ConnDetails)
 // ServerLock is a lock for accessing the Attached Servers map
 var ServerLock sync.Mutex
 
+// ServerActionLocks only allows 1 action on a server at a time
+var ServerActionLocks = make(map[int]*sync.Mutex)
+
 // ServerName returns the docker container name
 func ServerName(serverID int) string {
 	return fmt.Sprintf("msmf_server_%d", serverID)
 }
 
+// GetLock returns a lock for the server
+func GetLock(serverID int) (lock *sync.Mutex) {
+	// See if the lock exists
+	lock, exists := ServerActionLocks[serverID]
+	// Create it if it doesn't
+	if !exists {
+		lock = &sync.Mutex{}
+		ServerActionLocks[serverID] = lock
+	}
+
+	return lock
+}
+
 // ServerConsole handles communication between the websocket and the channels
-func ServerConsole(connDetails *ConnDetails, console Console) {
-	go func(connDetails *ConnDetails, console Console) {
+func ServerConsole(connDetails *ConnDetails, console *Console) {
+	go func(connDetails *ConnDetails, console *Console) {
 		w := console.Stdin
 		// Forever write into stdin
 		for {
@@ -93,9 +109,17 @@ func ServerConsole(connDetails *ConnDetails, console Console) {
 					"servers.id = ?", connDetails.ServerID,
 				).Update("running", false)
 
+				lock := GetLock(connDetails.ServerID)
+				lock.Lock()
 				// Server closed normally
 				if err == io.EOF {
+					// If the pipes are the old ones, remove them
+					if connDetails.Pipes == console {
+						connDetails.Pipes = nil
+					}
+
 					log.Printf("Server %d closed gracefully\n", connDetails.ServerID)
+					lock.Unlock()
 					return
 				}
 
@@ -104,11 +128,14 @@ func ServerConsole(connDetails *ConnDetails, console Console) {
 				_ = console.Stdout.Close()
 				_ = console.Stderr.Close()
 
-				// Make sure to kill the docker server in case it didn't already die
-				log.Printf("Stopping server %d due to crash\n", connDetails.ServerID)
-				_ = StopServer(connDetails.ServerID)
+				// Remove the pipes from the console
+				// If the pipes are the old ones, remove them
+				if connDetails.Pipes == console {
+					connDetails.Pipes = nil
+				}
 
-				// We are done, kill this function
+				// We are done, unlock and kill this function
+				lock.Unlock()
 				return
 			}
 		}
@@ -150,9 +177,11 @@ func ServerConsole(connDetails *ConnDetails, console Console) {
 
 			connDetails.SLock.Unlock()
 		}
-
 		// Tell the stdin listener to do the graceful shutdown
-		connDetails.ErrChan <- io.EOF
+		// Only tell the listener to die once
+		if isStdout {
+			connDetails.ErrChan <- io.EOF
+		}
 	}
 
 	// Run readers for stdout and stderr
@@ -196,6 +225,9 @@ func GetGameServers(running ...bool) (servers []string) {
 
 // CreateServer creates the docker container for the server, but does not start it
 func CreateServer(serverID int, image string, isImage bool, parameters []string) {
+	// Start the lock
+	lock := GetLock(serverID)
+	lock.Lock()
 	var cmdSlice []string
 	cmdSlice = append([]string{
 		"docker",
@@ -215,34 +247,46 @@ func CreateServer(serverID int, image string, isImage bool, parameters []string)
 	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
 
 	// Create the docker container
-	if err := cmd.Start(); err != nil {
+	if err := cmd.Run(); err != nil {
 		log.Fatal(err)
 	}
+	// End the lock
+	lock.Unlock()
 }
 
 // DeleteServer deletes a server if it exists
 func DeleteServer(serverID int) {
+	// Lock until action is completed
+	lock := ServerActionLocks[serverID]
+	lock.Lock()
+
+	// Get the container name
 	name := ServerName(serverID)
-	var cmdSlice []string
-	// First stop the container if it is running
-	cmdSlice = append([]string{"docker", "stop", name})
-	cmd := exec.Command(cmdSlice[0], cmdSlice[1:]...)
+
+	// Stop the container
+	cmd := exec.Command("docker", "stop", name)
+	_ = cmd.Run()
+
+	// Remove the container
+	cmd = exec.Command("docker", "rm", name)
 	err := cmd.Run()
 	if err != nil {
 		log.Println(err)
 	}
 
-	// Remove the container
-	cmdSlice = append([]string{"docker", "rm", name})
-	cmd = exec.Command(cmdSlice[0], cmdSlice[1:]...)
-	err = cmd.Run()
-	if err != nil {
-		log.Println(err)
-	}
+	// Finished removing the container
+	lock.Unlock()
 }
 
 // StartServer starts the docker container and attaches to it
-func StartServer(serverID int) (err error) {
+func StartServer(serverID int, shouldLock bool) (err error) {
+	var lock *sync.Mutex
+	if shouldLock {
+		// Start lock
+		lock = GetLock(serverID)
+		lock.Lock()
+	}
+
 	name := ServerName(serverID)
 	cmd := exec.Command("docker", "start", "-i", name)
 
@@ -268,46 +312,75 @@ func StartServer(serverID int) (err error) {
 	}
 
 	// Get the connection details
-	connDetails := AttachServer(serverID)
+	connDetails, exists := AttachServer(serverID, &console)
 
-	// Add the console to the server
-	ServerLock.Lock()
-	connDetails.Pipes = console
-	ServerLock.Unlock()
+	// If the console didn't already exist before
+	if !exists {
+		// Set up the framework for now handling the attachment of the server pipes to go channels
+		ServerConsole(connDetails, &console)
 
-	// Set up the framework for now handling the attachment of the server pipes to go channels
-	ServerConsole(connDetails, console)
+		// Start Discord integration if it needs to
+		RunDiscordIntegration(connDetails, serverID)
 
-	// Start Discord integration if it needs to
-	RunDiscordIntegration(connDetails, serverID)
+		// Start the server
+		err = cmd.Start()
+	}
 
-	// Start the server
-	err = cmd.Start()
+	// If it already exists don't bother starting the server
+	if shouldLock {
+		// Stop the lock
+		lock.Unlock()
+	}
+
 	return err
 }
 
 // StopServer stops the docker container
-func StopServer(serverID int) (err error) {
+func StopServer(serverID int, shouldLock bool) (err error) {
+	var lock *sync.Mutex
+	if shouldLock {
+		// Start the lock
+		lock = GetLock(serverID)
+		lock.Lock()
+	}
+
 	name := ServerName(serverID)
 	cmd := exec.Command("docker", "stop", name)
 
-	// Start the server
+	// Remove the console associated with an attached server
+	connDetails, _ := AttachServer(serverID, nil)
+	connDetails.Pipes = nil
+
+	// Stop the server
 	err = cmd.Run()
+
+	if shouldLock {
+		// End the lock
+		lock.Unlock()
+	}
+
 	return err
 }
 
 // AttachServer will return a ConnDetails mapping relevant to this server and add it to the
-// AttachedServers map if it isn't already in there
-func AttachServer(serverID int) (connDetails *ConnDetails) {
+// AttachedServers map if it isn't already in there.
+// It also returns whether the console exists or not, not the connDetails struct in the map
+func AttachServer(serverID int, console *Console) (connDetails *ConnDetails, consoleExists bool) {
 	// See if the connDetails exist
-	var exists bool
 	ServerLock.Lock()
-	connDetails, exists = AttachedServers[serverID]
-	ServerLock.Unlock()
+	connDetails, consoleExists = AttachedServers[serverID]
 
-	// ConnDetails exists
-	if exists {
-		return connDetails
+	// ConnDetails consoleExists
+	if consoleExists {
+		// Ignore request to add pipes if it's already nil
+		if connDetails.Pipes == nil {
+			connDetails.Pipes = console
+			ServerLock.Unlock()
+			return connDetails, false
+		}
+		ServerLock.Unlock()
+
+		return connDetails, true
 	}
 
 	// Create the ConnDetails struct
@@ -318,12 +391,12 @@ func AttachServer(serverID int) (connDetails *ConnDetails) {
 		NoRepeat: make(map[*websocket.Conn]PipeChans),
 		SLock:    &sync.Mutex{},
 		ErrChan:  make(chan error, 1),
+		Pipes:    console,
 	}
 
 	// Add it into the map
-	ServerLock.Lock()
 	AttachedServers[serverID] = connDetails
 	ServerLock.Unlock()
 
-	return connDetails
+	return connDetails, false
 }
