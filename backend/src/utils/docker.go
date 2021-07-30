@@ -88,7 +88,6 @@ func GetLock(serverID int) (lock *sync.Mutex) {
 
 // ServerConsole handles communication between the websocket and the channels
 func ServerConsole(connDetails *ConnDetails, console *Console) {
-	log.Println("Route Console")
 	go func(connDetails *ConnDetails, console *Console) {
 		w := console.Stdin
 		// Forever write into stdin
@@ -115,7 +114,6 @@ func ServerConsole(connDetails *ConnDetails, console *Console) {
 				// Server closed normally
 				if err == io.EOF {
 					// If the pipes are the old ones, remove them
-					log.Println("Route Die 1", connDetails.Pipes == console)
 					if connDetails.Pipes == console {
 						connDetails.Pipes = nil
 					}
@@ -135,9 +133,7 @@ func ServerConsole(connDetails *ConnDetails, console *Console) {
 				if connDetails.Pipes == console {
 					connDetails.Pipes = nil
 				}
-				log.Println("Here")
 
-				log.Println("Route Die 2", connDetails.Pipes == console)
 				// We are done, unlock and kill this function
 				lock.Unlock()
 				return
@@ -317,7 +313,6 @@ func StartServer(serverID int, shouldLock bool) (err error) {
 
 	// Get the connection details
 	connDetails, exists := AttachServer(serverID, &console)
-	log.Println("Route Start")
 
 	// If the console didn't already exist before
 	if !exists {
@@ -336,6 +331,7 @@ func StartServer(serverID int, shouldLock bool) (err error) {
 		// Stop the lock
 		lock.Unlock()
 	}
+
 	return err
 }
 
@@ -354,7 +350,6 @@ func StopServer(serverID int, shouldLock bool) (err error) {
 	// Remove the console associated with an attached server
 	connDetails, _ := AttachServer(serverID, nil)
 	connDetails.Pipes = nil
-	log.Println("Route Stop")
 
 	// Stop the server
 	err = cmd.Run()
