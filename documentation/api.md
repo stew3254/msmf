@@ -161,7 +161,6 @@ POST /api/refer HTTP/1.1
 Host: localhost:8080
 Cookie: token=8e293bfe1e482996f0782d4caac775d6cec81a102885547c939279f0e6634785
 Accept: application/json
-
 ```
 
 Response:
@@ -258,7 +257,6 @@ GET /api/refer HTTP/1.1
 Host: localhost:8080
 Cookie: token=8e293bfe1e482996f0782d4caac775d6cec81a102885547c939279f0e6634785
 Accept: application/json
-
 ```
 
 Response:
@@ -301,7 +299,6 @@ GET /api/refer/39363939 HTTP/1.1
 Host: localhost:8080
 Cookie: token=8e293bfe1e482996f0782d4caac775d6cec81a102885547c939279f0e6634785
 Accept: application/json
-
 ```
 
 Response:
@@ -437,7 +434,6 @@ GET /api/server HTTP/1.1
 Host: localhost:8080
 Cookie: token=6bbae15cc44adf688331c21c66670dfd40469dedf9a29e8e45ad0440dbb6db2a
 Accept: application/json
-
 ```
 
 Response:
@@ -571,11 +567,50 @@ Date: Sat, 31 Jul 2021 03:13:35 GMT
 
 ### Starting and Stopping Servers
 
-TODO Finish this
+In order to start, stop or restart a server, you must have meet any of the
+following conditions:
+
+* You are owner of the server
+* You have the server level permissions `administrator` or `restart`
+* You have the user level permissions `administrator` or
+  `manage_server_permission`
 
 #### Format
 
+Create an empty POST request to any of the following to get your desired effect:
+
+* `/api/server/:server_id/start`
+* `/api/server/:server_id/stop`
+* `/api/server/:server_id/restart`
+
+As long as the server actually exists, you should get no errors. It will return
+a successful response once the intended action happens. However, if you try to
+chain too many of these in a row, your requests might time out before they get
+fulfilled.
+
 #### Example
+
+Restarting a server
+
+```http request
+POST /api/server/1/restart HTTP/1.1
+Host: localhost:8080
+Cookie: token=3e93edc18cd45111bf06389f2f1b1e00976a2d4818932fec34e79ba576d189bb
+Accept: application/json
+```
+
+Response
+
+```http request
+HTTP/1.1 200 OK
+Content-Length: 20
+Content-Type: application/json
+Date: Sat, 31 Jul 2021 03:26:45 GMT
+
+{
+  "status": "Success"
+}
+```
 
 ### Deleting a Server
 

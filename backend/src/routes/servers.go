@@ -13,6 +13,8 @@ import (
 
 // Helper function to check permissions of a user
 func checkPerms(w http.ResponseWriter, r *http.Request, perm string, isServerPerm bool) bool {
+	// TODO properly check if they are owner of the server
+
 	// Get user token
 	tokenCookie, err := r.Cookie("token")
 	if err != nil {
