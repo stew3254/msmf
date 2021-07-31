@@ -172,7 +172,10 @@ Content-Length: 36
 Content-Type: application/json
 Date: Wed, 28 Jul 2021 20:23:59 GMT
 
-{"code":92659391,"status":"Success"}
+{
+  "code": 39363939,
+  "status": "Success"
+}
 ```
 
 ### Using Referral Codes
@@ -197,7 +200,10 @@ POST /api/refer/92659391 HTTP/1.1
 Host: localhost:8080
 Accept: application/json
 
-{"username": "stew3254", "password": "UNuD3TUWgiBPU2!r2U6X"}
+{
+  "username": "stew3254",
+  "password": "UNuD3TUWgiBPU2!r2U6X"
+}
 ```
 
 Response:
@@ -218,6 +224,14 @@ Date: Wed, 28 Jul 2021 20:46:32 GMT
 There are two ways to list active referral codes. If you know the code, you can
 either get the entire list of codes, or you can get information about a specific
 code
+
+### Structure
+
+Here is a top-down view of the Referral object:
+
+* `username` - The name of the user who made the object
+* `username` - The name of the user who made the object
+* `username` - The name of the user who made the object
 
 #### Format
 
@@ -250,33 +264,40 @@ Accept: application/json
 Response:
 
 ```http request
-GET http://localhost:8080/api/refer
-
 HTTP/1.1 200 OK
-Content-Length: 175
+Content-Length: 267
 Content-Type: application/json
-Date: Thu, 29 Jul 2021 01:56:21 GMT
+Date: Sat, 31 Jul 2021 02:22:15 GMT
 
-{
-  "referrers": [
-    {
-      "code": 42910757,
-      "expiration": "2021-07-29T21:44:05.740188Z",
-      "referrer": "admin"
-    },
-    {
-      "code": 99927865,
-      "expiration": "2021-07-29T21:44:25.763361Z",
-      "referrer": "admin"
+[
+  {
+    "code": 12199222,
+    "expiration": "2021-08-01T02:18:46.919706Z",
+    "user": {
+      "username": "admin"
     }
-  ]
-}
+  },
+  {
+    "code": 39363939,
+    "expiration": "2021-08-01T02:18:50.693649Z",
+    "user": {
+      "username": "admin"
+    }
+  },
+  {
+    "code": 20769021,
+    "expiration": "2021-08-01T02:21:27.26003Z",
+    "user": {
+      "username": "admin"
+    }
+  }
+]
 ```
 
 Single Code Request:
 
 ```http request
-GET /api/refer/37956766 HTTP/1.1
+GET /api/refer/39363939 HTTP/1.1
 Host: localhost:8080
 Cookie: token=8e293bfe1e482996f0782d4caac775d6cec81a102885547c939279f0e6634785
 Accept: application/json
@@ -287,11 +308,17 @@ Response:
 
 ```http request
 HTTP/1.1 200 OK
-Content-Length: 20
+Content-Length: 88
 Content-Type: application/json
-Date: Wed, 28 Jul 2021 20:46:32 GMT
+Date: Sat, 31 Jul 2021 02:25:40 GMT
 
-{"code":37956766,"expiration":"2021-07-29T20:23:45.98591Z","user":{"username":"admin"}}}
+{
+  "code": 39363939,
+  "expiration": "2021-08-01T02:18:50.693649Z",
+  "user": {
+    "username": "admin"
+  }
+}
 ```
 
 ## Server Management
@@ -331,7 +358,7 @@ the environmental variable `MEMORY=2G` to the container to give your server more
 RAM. To know whether you should add environmental variables or not, look up the
 documentation of the container being used to host the server per game.
 
-### Example
+#### Example
 
 Request:
 
@@ -377,7 +404,7 @@ If you do not meet any of these requirements, you will get an HTTP Status Not
 Found error when trying to look at a server directly, and this server will not
 show up in the all servers listing.
 
-### Structure:
+### Structure
 
 Here is a top-down view of the server object.
 
@@ -393,14 +420,17 @@ Here is a top-down view of the server object.
 * `version` - The version of the server if it is relevant
     * `tag` - The version tag
 
-#### Format:
+#### Format
 
 To view all servers, submit a GET request to `/api/server`. You can specify the
 column you would like to order on by using the `order_by` query string
 parameter. If you would then like to reverse the ordering, set
 `reverse=true` in the query string
 
-#### Examples:
+If you would like to view a single server, make a GET request to
+`/api/server/:server_id`
+
+#### Examples
 
 ```http request
 GET /api/server HTTP/1.1
@@ -479,32 +509,118 @@ Date: Fri, 30 Jul 2021 20:48:28 GMT
 
 ### Updating Servers
 
-TODO Finish this
+In order to update a server, you must have meet any of the following conditions:
+
+* You are owner of the server
+* You have the server level permissions `administrator` or `edit_configuration`
+* You have the user level permissions `administrator` or
+  `manage_server_permission`
+
+#### Format
+
+Submit a JSON PATCH request to `/api/server/:server_id`. You may set any of the
+following parameters:
+
+* `port` - You cannot change the port to one that has already been allocated
+* `name` - You cannot change the name to the name of a server already owned
+* by the owner
+* `version_tag` - This can be freely set
+
+#### Example
+
+Request:
+
+```http request
+PATCH http://localhost:8080/api/server/1
+Content-Type: application/json
+Cookie: token=3e93edc18cd45111bf06389f2f1b1e00976a2d4818932fec34e79ba576d189bb
+
+{
+  "name": "Vanilla",
+  "port": 25565
+}
+```
+
+Response:
+
+```http request
+HTTP/1.1 200 OK
+Content-Length: 157
+Content-Type: application/json
+Date: Sat, 31 Jul 2021 03:13:35 GMT
+
+{
+  "id": 1,
+  "port": 25565,
+  "name": "Vanilla",
+  "running": false,
+  "game": {
+    "name": "Minecraft"
+  },
+  "owner": {
+    "username": "admin"
+  },
+  "version": {
+    "tag": "1.16.5",
+    "game": {
+      "name": ""
+    }
+  }
+}
+```
 
 ### Starting and Stopping Servers
 
 TODO Finish this
 
+#### Format
+
+#### Example
+
 ### Deleting a Server
 
 TODO Finish this
 
+#### Format
+
+#### Example
+
 ### Connecting to Server Consoles
 
 TODO Finish this
 
+#### Format
+
+#### Example
+
 ### Connecting to Server Consoles
 
 TODO Finish this
+
+#### Format
+
+#### Example
 
 ### Creating Discord Integrations
 
 TODO Finish this
 
+#### Format
+
+#### Example
+
 ### Viewing Discord Integrations
 
 TODO Finish this
 
+#### Format
+
+#### Example
+
 ### Deleting Discord Integrations
 
 TODO Finish this
+
+#### Format
+
+#### Example
