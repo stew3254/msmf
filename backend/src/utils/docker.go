@@ -37,6 +37,9 @@ type ConnDetails struct {
 	// So this can be used to remove from the map later if things go wrong
 	ServerID int
 
+	// Console history buffer to send to newly joined clients
+	History *BytesRing
+
 	// MPSC - Multiple Producer Single Consumer
 	// The channel that all producers will be writing into for stdin
 	MChan chan []byte
@@ -165,6 +168,14 @@ func ServerConsole(connDetails *ConnDetails, console *Console) {
 			// Only one producer can do this at a time
 			// This ensures everyone gets their messages in the same order
 			connDetails.SLock.Lock()
+
+			// Pop a line if history is full
+			if connDetails.History.IsFull() {
+				connDetails.History.Pop()
+			}
+
+			// Add a new line to history
+			connDetails.History.Push(data)
 
 			// Look through the whole map and send the data on all the corresponding channels
 			for _, pipes := range connDetails.SPMC {
@@ -398,6 +409,7 @@ func AttachServer(serverID int, console *Console) (connDetails *ConnDetails, con
 	// Create the ConnDetails struct
 	connDetails = &ConnDetails{
 		ServerID: serverID,
+		History:  NewBytesRing(100),    // Store 100 lines of history
 		MChan:    make(chan []byte, 5), // Take up to 5 messages before blocking
 		SPMC:     make(map[*websocket.Conn]PipeChans),
 		NoRepeat: make(map[*websocket.Conn]PipeChans),

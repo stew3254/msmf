@@ -68,9 +68,22 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 		StderrChan: make(chan []byte, 5),
 	}
 
-	// Register with the SPMC
 	connDetails.SLock.Lock()
+	// Register with the SPMC
 	connDetails.SPMC[conn] = pipes
+	// Backfill history on connect
+	history := connDetails.History
+	for i := 0; i < history.Len(); i += 1 {
+		// Get the item from the buffer
+		item := history.Buffer[(i+history.Index)%history.Cap()]
+
+		// This loses whether the message was an error message or not
+		err := conn.WriteMessage(websocket.TextMessage, item)
+		if err != nil {
+			// Close the connection
+			_ = conn.Close()
+		}
+	}
 	connDetails.SLock.Unlock()
 
 	// Set the ping handler to handle adding no-repeat as well
@@ -144,6 +157,14 @@ func WsServerHandler(w http.ResponseWriter, r *http.Request) {
 				// Before sending to stdin, tell all other open websockets you are sending this message
 				// This is important so everyone gets to see the same console state
 				connDetails.SLock.Lock()
+				// Get History
+				history := connDetails.History
+				// If history is full pop one
+				if history.IsFull() {
+					history.Pop()
+				}
+				// Add to history
+				history.Push(data)
 				for c, pipes := range connDetails.SPMC {
 					// If a connection is not in no repeat, send the message
 					_, exists := connDetails.NoRepeat[c]
