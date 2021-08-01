@@ -588,53 +588,67 @@ a successful response once the intended action happens. However, if you try to
 chain too many of these in a row, your requests might time out before they get
 fulfilled.
 
-#### Example
-
-Restarting a server
-
-```http request
-POST /api/server/1/restart HTTP/1.1
-Host: localhost:8080
-Cookie: token=3e93edc18cd45111bf06389f2f1b1e00976a2d4818932fec34e79ba576d189bb
-Accept: application/json
-```
-
-Response
-
-```http request
-HTTP/1.1 200 OK
-Content-Length: 20
-Content-Type: application/json
-Date: Sat, 31 Jul 2021 03:26:45 GMT
-
-{
-  "status": "Success"
-}
-```
-
 ### Deleting a Server
 
-TODO Finish this
+In order to delete a server, you must have meet any of the following conditions:
+
+* You are owner of the server
+* You have the user level permissions `administrator` or `delete_server`
 
 #### Format
 
-#### Example
+Submit a DELETE request to `/api/server/:server_id`. It will either succeed or
+you don't have valid permissions to do this action
 
 ### Connecting to Server Consoles
 
-TODO Finish this
+Server consoles allow you to directly interact with the server and send commands
+to it. It often also gives you a way to chat with your players as they are
+playing. Anyone with access to this can become a server administrator, so it
+should only be given to people you trust. In order to view a server console, you
+must have any of the following permissions:
+
+* You are owner of the server
+* You have the server level permissions `administrator` or
+* `manage_server_console`
+* You have the user level permissions `administrator` or
+  `manage_server_permission`
 
 #### Format
 
+Create a websocket connection to `/api/ws/server/:server_id`.
+
+In order to send a message to stdin of the server, send the message with type
+`Text` to the server. This message will be sent back to you by default and every
+other existing websocket connection to this server before being sent to stdin.
+This is to ensure other clients with the server console open understand that
+there was a message sent to get why a potentially confusing output appeared on
+their screen. If you do not want to see your message played back to you like in
+the case of terminal based viewers, send a message of type `Ping` with the
+contents `no-repeat` verbatim. This will stop you from seeing your own messages.
+To turn the repeat feature back on, sent a message of type `Ping` with the
+contents `repeat` verbatim.
+
+When reading from the websocket, you will receive a message of type `Text`
+or of type `Binary`. Messages of type `Text` come from stdout, while messages of
+type `Binary` come from stderr. Every open websocket connection to this server
+will receive these messages in identical order while their connection is open at
+the same time.
+
+On connect, the web server will send up to the last 100 lines of history
+available since its start. This will all appear before any live data is sent to
+the socket
+
+In order to keep the connection alive over an extended period of time, the
+client should implement a function to ping the server every 5-10 seconds. Said
+function should send a message of type `Ping` to the server with any contents
+other than `no-repeat` or `repeat`. Upon receiving a successful ping, the server
+will reply `Pong!` with a message of type `Pong`.
+
 #### Example
 
-### Connecting to Server Consoles
-
-TODO Finish this
-
-#### Format
-
-#### Example
+TODO: Someone please add examples. HTTP example seems weird, so do Javascript or
+something. A Go one might be added eventually
 
 ### Creating Discord Integrations
 

@@ -110,6 +110,14 @@ func checkAuthenticated(next http.Handler) http.Handler {
 			// Give them another 6 hours from now if that's the case
 			user.TokenExpiration = now.Add(6 * time.Hour)
 			database.DB.Save(&user)
+			http.SetCookie(w, &http.Cookie{
+				Name:     "token",
+				Value:    user.Token,
+				Expires:  user.TokenExpiration,
+				Secure:   true,
+				HttpOnly: true,
+				SameSite: http.SameSiteStrictMode,
+			})
 		}
 
 		next.ServeHTTP(w, r)
