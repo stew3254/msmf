@@ -109,7 +109,7 @@ func createPerms() {
 		},
 		{
 			Name:        "manage_user_permission",
-			Description: "Allows management of other users's permissions. You cannot add permissions to others that you do not have already",
+			Description: "Allows management of other user's permissions. You cannot add permissions to others that you do not have already",
 		},
 		{
 			Name:        "manage_server_permission",
@@ -141,7 +141,7 @@ func createPerms() {
 		},
 		{
 			Name:        "edit_configuration",
-			Description: "Enables changing the port amoung other features",
+			Description: "Enables changing the port among other features",
 		},
 		{
 			Name:        "manage_mods",

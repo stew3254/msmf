@@ -13,6 +13,8 @@ import (
 
 // Helper function to check permissions of a user
 func checkPerms(w http.ResponseWriter, r *http.Request, perm string, isServerPerm bool) bool {
+	// TODO properly check if they are owner of the server
+
 	// Get user token
 	tokenCookie, err := r.Cookie("token")
 	if err != nil {
@@ -452,12 +454,57 @@ func UpdateServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// See if they actually have permissions to edit the configuration
+	if !checkPerms(w, r, "edit_configuration", true) {
+		return
+	}
+
 	// Get JSON of body of PATCH
 	body := make(map[string]interface{})
 	err = json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	// Delete any nasty keys that shouldn't be in there
+	delete(body, "id")
+	delete(body, "running")
+	delete(body, "owner_id")
+	delete(body, "game_id")
+	delete(body, "version_id")
+
+	// See if body tries to update version
+	value, exists := body["version_tag"]
+	var versionTag string
+	if exists {
+		switch value.(type) {
+		case string:
+			versionTag = value.(string)
+			// Get the version or add it to the db if it doesn't exist
+			var version database.Version
+			err := database.DB.Where("tag = ?", versionTag).Find(&version).Error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+			}
+
+			// Version doesn't exists
+			if version.ID == nil {
+				version.Tag = versionTag
+				version.GameID = server.GameID
+
+				// Add it to the database
+				database.DB.Create(&version)
+
+				// Add the version id back into the body map
+				body["version_id"] = version.ID
+
+				// TODO add special checks for Minecraft when the version upgrades to something incompatible
+				// with the current container
+			}
+		default:
+			delete(body, "version_tag")
+		}
 	}
 
 	// Update the server with requested fields
