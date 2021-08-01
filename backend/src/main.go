@@ -24,7 +24,7 @@ func main() {
 	// Used for debugging purposes
 	// database.DropTables()
 
-	// Create all of the tables with constraints and add all necessary starting information
+	// Create all the tables with constraints and add all necessary starting information
 	// if it doesn't already exist
 	database.MakeDB()
 
@@ -74,20 +74,26 @@ func main() {
 	// Handle calls to update a server
 	api.HandleFunc("/server/{id:[0-9]+}", routes.UpdateServer).Methods("PATCH")
 	// Handle calls to delete servers
+	// TODO consider returning No Content instead
 	api.HandleFunc("/server/{id:[0-9]+}", routes.DeleteServer).Methods("DELETE")
 	// Handle calls to start a server
+	// TODO consider returning No Content instead
 	api.HandleFunc("/server/{id:[0-9]+}/start", routes.StartServer).Methods("POST")
 	// Handle calls to stop a server
+	// TODO consider returning No Content instead
 	api.HandleFunc("/server/{id:[0-9]+}/stop", routes.StopServer).Methods("POST")
 	// Handle calls to restart a server
+	// TODO consider returning No Content instead
 	api.HandleFunc("/server/{id:[0-9]+}/restart", routes.RestartServer).Methods("POST")
 
 	// Handle websocket connections for server consoles
 	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WsServerHandler)
 
 	// Handle creating and updating integrations with Discord
+	// TODO issue with method used, reconsider the method used and possibly add additional ones
 	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.MakeIntegration).Methods("PUT")
 	// Handle deleting integrations with Discord
+	// TODO consider returning No Content instead
 	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.DeleteIntegration).Methods("DELETE")
 	// Handle getting an integration with Discord
 	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.GetIntegration).Methods("GET")
@@ -99,8 +105,23 @@ func main() {
 	// Handle referral code
 	api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "POST")
 
-	// Get user permissions
-	api.HandleFunc("/perm", routes.GetPerms).Methods("GET")
+	// Get user permissions assigned to all relevant users
+	api.HandleFunc("/perm/user", routes.GetUserPerms).Methods("GET")
+	// Get user permissions assigned to a particular user
+	api.HandleFunc("/perm/user/{name}", routes.GetUserPerms).Methods("GET")
+	// Update permissions assigned to a particular user
+	api.HandleFunc("/perm/user/{name}", routes.UpdateUserPerms).Methods("PUT")
+
+	// Get server permissions assigned to all relevant users and servers
+	api.HandleFunc("/perm/server", routes.GetServerPerms).Methods("GET")
+	// Get server permissions assigned to all relevant users for a particular server
+	api.HandleFunc("/perm/server/{id:[0-9]+}", routes.GetServerPerms).Methods("GET")
+	// Get server permissions assigned to all relevant servers for a particular user
+	api.HandleFunc("/perm/server/user/{name}", routes.GetServerPerms).Methods("GET")
+	// Get server permissions assigned to a particular user for a particular server
+	api.HandleFunc("/perm/server/{id:[0-9]+}/user/{name}", routes.GetServerPerms).Methods("GET")
+	// Update permissions assigned to a particular user for a particular server
+	api.HandleFunc("/perm/server/{id:[0-9]+}/user/{name}", routes.UpdateServerPerms).Methods("PUT")
 
 	// Handle static traffic
 	router.PathPrefix("/").Handler(http.FileServer(HTMLStrippingFileSystem{http.Dir("static")})).Methods("GET")

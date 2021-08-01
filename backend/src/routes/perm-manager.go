@@ -54,3 +54,23 @@ func GetPerms(w http.ResponseWriter, r *http.Request) {
 	// Write out the response
 	utils.WriteJSON(w, http.StatusOK, &resp)
 }
+
+// GetUserPerms contains all ways to get user level permissions
+func GetUserPerms(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "501 not implemented", http.StatusNotImplemented)
+}
+
+// UpdateUserPerms allows changes to a user's user level permission status to be changed
+func UpdateUserPerms(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "501 not implemented", http.StatusNotImplemented)
+}
+
+// GetServerPerms contains all ways to get server level permissions
+func GetServerPerms(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "501 not implemented", http.StatusNotImplemented)
+}
+
+// UpdateServerPerms allows changes to a user's server level permission status to be changed
+func UpdateServerPerms(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "501 not implemented", http.StatusNotImplemented)
+}
