@@ -39,7 +39,7 @@ type DiscordIntegration struct {
 	Username   *string `gorm:"type: varchar(64)" json:"username"`
 	AvatarURL  *string `gorm:"type: text" json:"avatar_url"`
 	Active     bool    `gorm:"not null; type: bool" json:"active"`
-	ServerID   *int    `gorm:"index:server_integration,unique" json:"server_id"`
+	ServerID   *int    `gorm:"index:server_integration,unique" json:"-"`
 	Server     Server  `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL" json:"-"`
 }
 

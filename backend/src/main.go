@@ -91,6 +91,7 @@ func main() {
 
 	// Handle creating and updating integrations with Discord
 	// TODO issue with method used, reconsider the method used and possibly add additional ones
+	// TODO consider returning No Content instead
 	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.MakeIntegration).Methods("PUT")
 	// Handle deleting integrations with Discord
 	// TODO consider returning No Content instead
