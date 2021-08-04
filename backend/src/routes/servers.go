@@ -165,10 +165,7 @@ func runServer(w http.ResponseWriter, r *http.Request, action string) {
 		).Update("running", true)
 	}
 
-	// Write out response
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	http.Error(w, "", http.StatusNoContent)
 }
 
 func CreateServer(w http.ResponseWriter, r *http.Request) {
@@ -549,10 +546,7 @@ func DeleteServer(w http.ResponseWriter, r *http.Request) {
 	// Delete it from the database
 	database.DB.Delete(&database.Server{}, serverID)
 
-	// Write out response
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	http.Error(w, "", http.StatusNoContent)
 }
 
 // StartServer starts the server

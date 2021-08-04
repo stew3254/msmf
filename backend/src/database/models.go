@@ -45,7 +45,7 @@ type DiscordIntegration struct {
 
 // Server Model
 type Server struct {
-	ID        *int    `gorm:"primaryKey; type:serial" json:"id"`
+	ID        *int    `gorm:"primaryKey; type:serial" json:"-"`
 	Port      uint16  `gorm:"not null; unique; check: Port < 65536; check: Port > 0" json:"port"`
 	Name      string  `gorm:"type: varchar(64)" json:"name"`
 	Running   bool    `gorm:"not null; type: bool" json:"running"`
@@ -68,6 +68,7 @@ type ServerPerm struct {
 type User struct {
 	ID              *int      `gorm:"primaryKey; type:serial" json:"-"`
 	Username        string    `gorm:"type: varchar(32) not null unique" json:"username"`
+	Display         string    `gorm:"type: varchar(64)" json:"display"`
 	Password        []byte    `gorm:"type: bytea not null" json:"-"`
 	Token           string    `gorm:"type varchar(64) not null unique" json:"-"`
 	TokenExpiration time.Time `json:"-"`
@@ -108,7 +109,7 @@ type ModsPerServer struct {
 
 // PermsPerUser Model. Foriegn Key table
 type PermsPerUser struct {
-	UserID     int      `gorm:"not null; index:perms_per_user,unique" json:"userid"`
+	UserID     int      `gorm:"not null; index:perms_per_user,unique" json:"user_id"`
 	User       User     `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE" json:"user"`
 	UserPermID int      `gorm:"not null; index:perms_per_user,unique" json:"user_perm_id"`
 	UserPerm   UserPerm `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE" json:"user_perm"`

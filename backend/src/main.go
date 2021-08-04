@@ -65,64 +65,113 @@ func main() {
 	api.NotFoundHandler = NotFound{}
 	api.MethodNotAllowedHandler = MethodNotAllowed{}
 
-	// Handle calls to create servers
-	api.HandleFunc("/server", routes.CreateServer).Methods("POST")
-	// Handle calls to list servers
-	api.HandleFunc("/server", routes.GetServers).Methods("GET")
-	// Handle calls to view a server
-	api.HandleFunc("/server/{id:[0-9]+}", routes.GetServer).Methods("GET")
-	// Handle calls to update a server
-	api.HandleFunc("/server/{id:[0-9]+}", routes.UpdateServer).Methods("PATCH")
-	// Handle calls to delete servers
-	// TODO consider returning No Content instead
-	api.HandleFunc("/server/{id:[0-9]+}", routes.DeleteServer).Methods("DELETE")
-	// Handle calls to start a server
-	// TODO consider returning No Content instead
-	api.HandleFunc("/server/{id:[0-9]+}/start", routes.StartServer).Methods("POST")
-	// Handle calls to stop a server
-	// TODO consider returning No Content instead
-	api.HandleFunc("/server/{id:[0-9]+}/stop", routes.StopServer).Methods("POST")
-	// Handle calls to restart a server
-	// TODO consider returning No Content instead
-	api.HandleFunc("/server/{id:[0-9]+}/restart", routes.RestartServer).Methods("POST")
-
-	// Handle websocket connections for server consoles
-	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WsServerHandler)
-
-	// Handle creating and updating integrations with Discord
-	// TODO issue with method used, reconsider the method used and possibly add additional ones
-	// TODO consider returning No Content instead
-	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.MakeIntegration).Methods("PUT")
-	// Handle deleting integrations with Discord
-	// TODO consider returning No Content instead
-	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.DeleteIntegration).Methods("DELETE")
-	// Handle getting an integration with Discord
-	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.GetIntegration).Methods("GET")
+	// Handle API calls for users
+	// Get a list of all users
+	api.HandleFunc("/user", routes.GetUsers).Methods("GET")
+	// Get your information
+	api.HandleFunc("/user/me", routes.GetUser).Methods("GET")
+	// Get information about a specific person ('me' and 'perm' are an invalid usernames)
+	api.HandleFunc("/user/{user:[a-z0-9]+", routes.GetUser).Methods("GET")
+	// Get user permissions assigned to all relevant users
+	api.HandleFunc("/user/perm", routes.GetUserPerms).Methods("GET")
+	// Get user permissions assigned to a particular user
+	api.HandleFunc("/user/{user:[a-z0-9]+}/perm", routes.GetUserPerms).Methods("GET")
+	// Update user permissions assigned to a particular user
+	api.HandleFunc("/user/{user:[a-z0-9]+}/perm", routes.UpdateUserPerms).Methods("PUT")
+	// Get server permissions assigned to all relevant servers for a particular user
+	api.HandleFunc(
+		"/user/{user:[a-z0-9]}/server_perm",
+		routes.GetServerPerms,
+	).Methods("GET")
+	// Get server permissions assigned to a user for a particular server
+	api.HandleFunc(
+		"/user/{user:[a-z0-9]}/server_perm/{owner:[a-z0-9]+}/{name:[a-z0-9]+}",
+		routes.GetServerPerms,
+	).Methods("GET")
+	// Update server permissions for a particular user and server
+	api.HandleFunc(
+		"/user/{user:[a-z0-9]}/server_perm/{owner:[a-z0-9]+}/{name:[a-z0-9]+}",
+		routes.GetServerPerms,
+	).Methods("GET")
 
 	// Get existing referral codes
 	api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
 	// Create new referral codes
 	api.HandleFunc("/refer", routes.CreateReferral).Methods("POST")
 	// Handle referral code
-	api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "POST")
+	api.HandleFunc("/refer/{code:[a-zA-Z0-9]+}", routes.Refer).Methods("GET", "POST")
 
-	// Get user permissions assigned to all relevant users
-	api.HandleFunc("/perm/user", routes.GetUserPerms).Methods("GET")
-	// Get user permissions assigned to a particular user
-	api.HandleFunc("/perm/user/{name}", routes.GetUserPerms).Methods("GET")
-	// Update permissions assigned to a particular user
-	api.HandleFunc("/perm/user/{name}", routes.UpdateUserPerms).Methods("PUT")
+	// Handle API calls for servers
+	// Create a new server
+	api.HandleFunc("/server", routes.CreateServer).Methods("POST")
+	// List all visible servers
+	api.HandleFunc("/server", routes.GetServers).Methods("GET")
+	// View a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}",
+		routes.GetServer,
+	).Methods("GET")
+	// Update a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}",
+		routes.UpdateServer,
+	).Methods("PATCH")
+	// Delete a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}",
+		routes.DeleteServer,
+	).Methods("DELETE")
+	// Start a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/start",
+		routes.StartServer,
+	).Methods("POST")
+	// Stop a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/stop",
+		routes.StopServer,
+	).Methods("POST")
+	// Restart a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/restart",
+		routes.RestartServer,
+	).Methods("POST")
 
 	// Get server permissions assigned to all relevant users and servers
-	api.HandleFunc("/perm/server", routes.GetServerPerms).Methods("GET")
+	api.HandleFunc("/server/perm", routes.GetServerPerms).Methods("GET")
 	// Get server permissions assigned to all relevant users for a particular server
-	api.HandleFunc("/perm/server/{id:[0-9]+}", routes.GetServerPerms).Methods("GET")
-	// Get server permissions assigned to all relevant servers for a particular user
-	api.HandleFunc("/perm/server/user/{name}", routes.GetServerPerms).Methods("GET")
+	api.HandleFunc("/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/perm",
+		routes.GetServerPerms).Methods("GET")
 	// Get server permissions assigned to a particular user for a particular server
-	api.HandleFunc("/perm/server/{id:[0-9]+}/user/{name}", routes.GetServerPerms).Methods("GET")
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/perm/{user:[a-z0-9]+}",
+		routes.GetServerPerms,
+	).Methods("GET")
 	// Update permissions assigned to a particular user for a particular server
-	api.HandleFunc("/perm/server/{id:[0-9]+}/user/{name}", routes.UpdateServerPerms).Methods("PUT")
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/perm/{user:[a-z0-9]+}",
+		routes.UpdateServerPerms,
+	).Methods("PUT")
+
+	// Handle websocket connections for a server console
+	api.HandleFunc("/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/console", routes.WsServerHandler)
+
+	// Create or Update an integration with Discord
+	// TODO fix issue with PUT where it's not idempotent
+	api.HandleFunc(
+		"/server/{user:[a-z0-9]+}/{name:[a-z0-9-]+}/discord",
+		routes.MakeIntegration,
+	).Methods("PUT")
+	// Delete an integration with Discord
+	api.HandleFunc(
+		"/server/{user:[a-z0-9]+}/{name:[a-z0-9-]+}/discord",
+		routes.DeleteIntegration,
+	).Methods("DELETE")
+	// View an integration with Discord
+	api.HandleFunc(
+		"/server/{user:[a-z0-9]+}/{name:[a-z0-9-]+}/discord",
+		routes.GetIntegration,
+	).Methods("GET")
 
 	// Handle static traffic
 	router.PathPrefix("/").Handler(http.FileServer(HTMLStrippingFileSystem{http.Dir("static")})).Methods("GET")

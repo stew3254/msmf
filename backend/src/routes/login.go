@@ -37,6 +37,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.SetCookie(w, &http.Cookie{
+			Path:     "/",
 			Name:     "token",
 			Value:    user.Token,
 			Expires:  user.TokenExpiration,
@@ -44,7 +45,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 			HttpOnly: true,
 			SameSite: http.SameSiteStrictMode,
 		})
-		http.Redirect(w, r, "/", http.StatusFound)
+		// http.Redirect(w, r, "/", http.StatusFound)
+		// DEBUG
+		http.ServeFile(w, r, "static/index.html")
 		return
 	}
 	http.Error(w, "Forbidden", http.StatusForbidden)

@@ -111,6 +111,7 @@ func checkAuthenticated(next http.Handler) http.Handler {
 			user.TokenExpiration = now.Add(6 * time.Hour)
 			database.DB.Save(&user)
 			http.SetCookie(w, &http.Cookie{
+				Path:     "/",
 				Name:     "token",
 				Value:    user.Token,
 				Expires:  user.TokenExpiration,

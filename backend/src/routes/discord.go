@@ -169,10 +169,7 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 	// Save the integration
 	database.DB.Save(&integration)
 
-	// Write out success
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	http.Error(w, "", http.StatusNoContent)
 }
 
 // DeleteIntegration will delete an integration with a server
@@ -189,10 +186,7 @@ func DeleteIntegration(w http.ResponseWriter, r *http.Request) {
 	// Delete the integration
 	database.DB.Where("server_id = ?", serverID).Delete(&database.DiscordIntegration{})
 
-	// Write out success
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	http.Error(w, "", http.StatusNoContent)
 }
 
 // GetIntegration will show information about the integration with a server

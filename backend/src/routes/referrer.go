@@ -101,7 +101,6 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 		}
 		err = database.DB.Create(&referral).Error
 		if err == nil {
-			resp["status"] = "Success"
 			resp["code"] = code
 			break
 		} else {

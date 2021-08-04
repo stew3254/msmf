@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"github.com/gorilla/mux"
+	"log"
 	"msmf/database"
 	"msmf/utils"
 	"net/http"
@@ -57,12 +59,86 @@ func GetPerms(w http.ResponseWriter, r *http.Request) {
 
 // GetUserPerms contains all ways to get user level permissions
 func GetUserPerms(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "501 not implemented", http.StatusNotImplemented)
+	tokenCookie, _ := r.Cookie("token")
+	token := tokenCookie.Value
+
+	// Get url parameters
+	params := mux.Vars(r)
+	name, exists := params["name"]
+
+	// See if the user has permissions to change other people's permissions
+	hasPerms := utils.CheckPermissions(&utils.PermCheck{
+		FKTable:     "perms_per_users",
+		Perms:       "manage_user_permission",
+		PermTable:   "user_perms",
+		Search:      token,
+		SearchCol:   "token",
+		SearchTable: "users",
+	})
+
+	type Result struct {
+		Username    string `json:"username"`
+		Permission  string `json:"permission"`
+		Description string `json:"description"`
+	}
+
+	var result []Result
+	var err error
+
+	// Create a query to get user perms
+	query := database.DB.Table("perms_per_users ppu").Select(
+		"u.username as username, up.name as permission, up.description as description",
+	).Joins(
+		"INNER JOIN users u ON ppu.user_id = u.id",
+	).Joins(
+		"INNER JOIN user_perms up ON ppu.user_perm_id = up.id",
+	)
+
+	// See if the user has permissions and didn't just query a specific user
+	if hasPerms && !exists {
+		err = query.Find(&result).Error
+		// See if they have perms and they want to find details on a specific user
+	} else if hasPerms && exists {
+		// Get user
+		var user database.User
+		database.DB.Where("username = ?", name).Find(&user)
+
+		// They don't exist
+		if user.ID == nil {
+			utils.ErrorJSON(w, http.StatusNotFound, "Not found")
+			return
+		}
+
+		// Look for perms for a specific user
+		err = query.Where("username = ?", name).Find(&result).Error
+		// They don't have perms and they didn't look for a particular person
+	} else if !exists {
+		// They are just going to get perms for themselves
+		err = query.Where("token = ?", token).Find(&result).Error
+		// They don't have perms and are trying to find someone
+	} else {
+		// They aren't allowed to see other users
+		utils.ErrorJSON(w, http.StatusNotFound, "Not found")
+		return
+	}
+
+	// If we had an error, complain
+	if err != nil {
+		utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Write out the perms
+	utils.WriteJSON(w, http.StatusOK, &result)
 }
 
 // UpdateUserPerms allows changes to a user's user level permission status to be changed
 func UpdateUserPerms(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "501 not implemented", http.StatusNotImplemented)
+	tokenCookie, _ := r.Cookie("token")
+	token := tokenCookie.Value
+	log.Println(token)
+
+	http.Error(w, "", http.StatusNoContent)
 }
 
 // GetServerPerms contains all ways to get server level permissions
