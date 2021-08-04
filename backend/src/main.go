@@ -104,7 +104,7 @@ func main() {
 	// Create new referral codes
 	api.HandleFunc("/refer", routes.CreateReferral).Methods("POST")
 	// Handle referral code
-	api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "POST")
+	api.HandleFunc("/refer/{code:[0-9]+}", routes.Refer).Methods("GET", "POST")
 
 	// Get user permissions assigned to all relevant users
 	api.HandleFunc("/perm/user", routes.GetUserPerms).Methods("GET")

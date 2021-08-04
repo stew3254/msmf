@@ -108,7 +108,7 @@ type ModsPerServer struct {
 
 // PermsPerUser Model. Foriegn Key table
 type PermsPerUser struct {
-	UserID     int      `gorm:"not null; index:perms_per_user,unique" json:"userid"`
+	UserID     int      `gorm:"not null; index:perms_per_user,unique" json:"user_id"`
 	User       User     `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE" json:"user"`
 	UserPermID int      `gorm:"not null; index:perms_per_user,unique" json:"user_perm_id"`
 	UserPerm   UserPerm `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE" json:"user_perm"`
