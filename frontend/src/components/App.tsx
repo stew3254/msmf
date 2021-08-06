@@ -1,13 +1,14 @@
 import * as React from "react";
-import {useEffect, useState} from "react";
+import {lazy, Suspense, useEffect, useState} from "react";
 import {BrowserRouter as Router, Link, Route, Switch} from "react-router-dom";
 import {Badge, Container, Nav, Navbar, NavDropdown, NavItem, NavLink, Row} from "react-bootstrap";
-import Home from "./Home";
-import Login from "./Login";
-import Invite from "./Invite";
-import Register from "./Register";
-import ChangePassword from "./ChangePassword";
-import DevConsole from "./DevConsole";
+
+const Home = lazy(() => import("./HomeRoute"));
+const Login = lazy(() => import("./account/LoginRoute"));
+const Invite = lazy(() => import("./account/InviteRoute"));
+const Register = lazy(() => import("./account/RegisterRoute"));
+const ChangePassword = lazy(() => import("./account/ChangePasswordRoute"));
+const DevConsole = lazy(() => import("./server/DevConsoleRoute"));
 
 export default function App() {
     // const location = useLocation();
@@ -57,24 +58,26 @@ export default function App() {
                         </Nav>
                     </div>
                     <div className="col-md-10">
-                        <Switch>
-                            <Route path="/invite">
-                                <Invite/>
-                            </Route>
-                            <Route path="/login">
-                                <Login/>
-                            </Route>
-                            <Route path="/register">
-                                <Register/>
-                            </Route>
-                            <Route path="/change-password">
-                                <ChangePassword/>
-                            </Route>
-                            <Route path="/console/:serverId" component={DevConsole}/>
-                            <Route path="/">
-                                <Home/>
-                            </Route>
-                        </Switch>
+                        <Suspense fallback={<div>Loading...</div>}>
+                            <Switch>
+                                <Route path="/invite">
+                                    <Invite/>
+                                </Route>
+                                <Route path="/login">
+                                    <Login/>
+                                </Route>
+                                <Route path="/register">
+                                    <Register/>
+                                </Route>
+                                <Route path="/change-password">
+                                    <ChangePassword/>
+                                </Route>
+                                <Route path="/console/:serverId" component={DevConsole}/>
+                                <Route path="/">
+                                    <Home/>
+                                </Route>
+                            </Switch>
+                        </Suspense>
                     </div>
                 </Row>
             </Container>

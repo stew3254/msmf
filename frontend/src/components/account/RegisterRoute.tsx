@@ -1,7 +1,7 @@
 import * as React from "react";
 import {Button, Form} from "react-bootstrap";
 
-export default function Register() {
+export default function RegisterRoute() {
     return (
         <Form>
             <Form.Group className="mb-3">

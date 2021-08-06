@@ -1,6 +1,6 @@
 import * as React from "react";
 
-export default function Home() {
+export default function HomeRoute() {
     return (
         <div className="p-5 bg-light">
             <h1 className="display-4">Welcome to MSMF!</h1>
