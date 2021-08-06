@@ -2,9 +2,9 @@ import * as React from "react";
 import {useEffect, useRef, useState} from "react";
 import {Badge, Button, ButtonGroup} from "react-bootstrap";
 import {useParams} from "react-router-dom";
-import {APIWebSocket} from "../api/APIWebSocket";
+import {APIWebSocket} from "../../api/APIWebSocket";
 
-function DevConsole() {
+function DevConsoleRoute() {
     const {serverId} = useParams();
     const logId = useRef(0);
     const webSocket = useRef<WebSocket>();
@@ -69,4 +69,4 @@ function DevConsole() {
     );
 }
 
-export default DevConsole;
+export default DevConsoleRoute;
