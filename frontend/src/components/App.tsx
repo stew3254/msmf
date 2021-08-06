@@ -8,6 +8,7 @@ const Login = lazy(() => import("./account/LoginRoute"));
 const Invite = lazy(() => import("./account/InviteRoute"));
 const Register = lazy(() => import("./account/RegisterRoute"));
 const ChangePassword = lazy(() => import("./account/ChangePasswordRoute"));
+const NewServerRoute = lazy(() => import("./server/new/NewServerRoute"));
 const DevConsole = lazy(() => import("./server/DevConsoleRoute"));
 
 export default function App() {
@@ -30,8 +31,11 @@ export default function App() {
                 <Container fluid>
                     <Navbar.Brand as={Link} to="/">MSMF</Navbar.Brand>
                     <Navbar.Toggle/>
-                    <Navbar.Collapse role="navigation" className="justify-content-end">
+                    <Navbar.Collapse role="navigation">
                         <Nav>
+                            <NavLink as={Link} to="/server/new">New Server</NavLink>
+                        </Nav>
+                        <Nav className="ms-auto">
                             <NavDropdown id="account-dropdown" title="Account" align="end">
                                 <NavDropdown.Item as={Link} to="/invite">Invite</NavDropdown.Item>
                                 <NavDropdown.Item as={Link} to="/login">Login</NavDropdown.Item>
@@ -71,6 +75,9 @@ export default function App() {
                                 </Route>
                                 <Route path="/change-password">
                                     <ChangePassword/>
+                                </Route>
+                                <Route path="/server/new">
+                                    <NewServerRoute/>
                                 </Route>
                                 <Route path="/console/:serverId" component={DevConsole}/>
                                 <Route path="/">
