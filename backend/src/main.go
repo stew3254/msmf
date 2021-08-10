@@ -57,8 +57,6 @@ func main() {
 
 	// Handle logins
 	router.HandleFunc("/login", routes.Login).Methods("POST")
-	// Handle changing password
-	router.HandleFunc("/change-password", routes.ChangePassword).Methods("POST")
 
 	// Handle API calls
 	api := router.PathPrefix("/api").Subrouter()
@@ -70,10 +68,12 @@ func main() {
 	api.HandleFunc("/user", routes.GetUsers).Methods("GET")
 	// Get your information
 	api.HandleFunc("/user/me", routes.GetUser).Methods("GET")
-	// Get information about a specific person ('me' and 'perm' are an invalid usernames)
-	api.HandleFunc("/user/{user:[a-z0-9]+", routes.GetUser).Methods("GET")
+	// Update your information
+	api.HandleFunc("/user/me", routes.UpdateUser).Methods("PATCH")
 	// Get user permissions assigned to all relevant users
 	api.HandleFunc("/user/perm", routes.GetUserPerms).Methods("GET")
+	// Get information about a specific person ('me' and 'perm' are an invalid usernames)
+	api.HandleFunc("/user/{user:[a-z0-9]+}", routes.GetUser).Methods("GET")
 	// Get user permissions assigned to a particular user
 	api.HandleFunc("/user/{user:[a-z0-9]+}/perm", routes.GetUserPerms).Methods("GET")
 	// Update user permissions assigned to a particular user
@@ -157,7 +157,6 @@ func main() {
 	api.HandleFunc("/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/console", routes.WsServerHandler)
 
 	// Create or Update an integration with Discord
-	// TODO fix issue with PUT where it's not idempotent
 	api.HandleFunc(
 		"/server/{user:[a-z0-9]+}/{name:[a-z0-9-]+}/discord",
 		routes.MakeIntegration,

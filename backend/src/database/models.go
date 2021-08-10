@@ -68,7 +68,7 @@ type ServerPerm struct {
 type User struct {
 	ID              *int      `gorm:"primaryKey; type:serial" json:"-"`
 	Username        string    `gorm:"type: varchar(32) not null unique" json:"username"`
-	Display         string    `gorm:"type: varchar(64)" json:"display"`
+	Display         *string   `gorm:"type: varchar(64)" json:"display"`
 	Password        []byte    `gorm:"type: bytea not null" json:"-"`
 	Token           string    `gorm:"type varchar(64) not null unique" json:"-"`
 	TokenExpiration time.Time `json:"-"`
@@ -85,7 +85,7 @@ type UserPerm struct {
 
 // Referrer Model. Where active user referrals reside
 type Referrer struct {
-	Code       int       `gorm:"primaryKey" json:"code"`
+	Code       string    `gorm:"primaryKey; type:varchar(6)" json:"code"`
 	Expiration time.Time `gorm:"not null" json:"expiration"`
 	UserID     *int      `gorm:"not null" json:"-"`
 	User       User      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"user"`

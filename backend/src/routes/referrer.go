@@ -2,13 +2,11 @@ package routes
 
 import (
 	"encoding/json"
+	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm/clause"
-	"math"
 	"math/rand"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"msmf/database"
@@ -92,7 +90,16 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 
 	// Loop until a valid code is found
 	for {
-		code := (rand.Int() % (int(math.Pow(10, 8)) - int(math.Pow(10, 7)-1))) + int(math.Pow(10, 7))
+		// Set count to something non-zero
+		var count int64 = 1
+		var code string
+		// See if code already exists
+		for count != 0 {
+			// Make a new code
+			code = utils.GenerateCode()
+			database.DB.Where("referrers.code = ?", code).Count(&count)
+		}
+
 		// Give user 24 hours until referral code expires
 		referral := database.Referrer{
 			Code:       code,
@@ -104,7 +111,6 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 			resp["code"] = code
 			break
 		} else {
-			// TODO fix this
 			utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -117,14 +123,8 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 // Refer allows users with proper permissions to send someone an invite code
 // in order to make an account
 func Refer(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(r.URL.String(), "/")
-	// Can't error due to regex checking on route
-	code, _ := strconv.Atoi(parts[len(parts)-1])
-	resp := make(map[string]interface{})
-	if code < int(math.Pow(10, 7)) || code > int(math.Pow(10, 8))-1 {
-		utils.ErrorJSON(w, http.StatusNotFound, "Not Found")
-		return
-	}
+	params := mux.Vars(r)
+	code := params["code"]
 
 	// Grab the user and referral code
 	var referrer database.Referrer
@@ -154,28 +154,75 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Make sure username matches pattern
+	if !utils.UserPattern.MatchString(body["username"]) {
+		utils.ErrorJSON(w, http.StatusBadRequest, "Invalid username format")
+		return
+	}
+
+	username, exists := body["username"]
+	if !exists {
+		utils.ErrorJSON(w, http.StatusBadRequest, "Must supply a username")
+		return
+	}
+	password, exists := body["password"]
+	if !exists {
+		utils.ErrorJSON(w, http.StatusBadRequest, "Must supply a password")
+		return
+	}
+
 	// Check if any of the following are missing
-	if len(body["username"]) == 0 || len(body["password"]) == 0 {
-		utils.ErrorJSON(w, http.StatusBadRequest, "Bad Request")
+	if len(username) == 0 || len(password) == 0 {
+		utils.ErrorJSON(w, http.StatusBadRequest, "Cannot submit empty user or password")
+		return
+	}
+
+	// Don't let the fields be too long
+	if len(username) > 32 || len(password) > 64 {
+		utils.ErrorJSON(w, http.StatusBadRequest,
+			"Cannot exceed maximum length of username or password")
+		return
+	}
+
+	// Cannot allow them to have the same name as the routes
+	if username == "me" || password == "perm" {
+		utils.ErrorJSON(w, http.StatusBadRequest, "Cannot set name to something reserved as a route")
 		return
 	}
 
 	// Generate the password hash
-	hash, err := bcrypt.GenerateFromPassword([]byte(body["password"]), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	// Something wrong with hashing
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Attempt to make the user
-	err = database.DB.Create(&database.User{
+	// See if user set a display name
+	display, exists := body["display"]
+	if exists {
+		if len(display) > 32 {
+			utils.ErrorJSON(w, http.StatusBadRequest, "Cannot exceed maximum length of display name")
+			return
+		}
+	}
+
+	// Create user
+	user := database.User{
 		Username:   body["username"],
 		Password:   hash,
 		ReferredBy: referrer.UserID,
-	}).Error
+	}
 
-	// Owner already exists
+	// Add the display if they have it
+	if exists {
+		user.Display = &display
+	}
+
+	// Attempt to make the user
+	err = database.DB.Create(&user).Error
+
+	// User already exists
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
@@ -183,8 +230,6 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 
 	// All good, remove one time referrer code
 	database.DB.Delete(&referrer)
-	resp["status"] = "Success"
 
-	// Write out the body
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	http.Error(w, "", http.StatusNoContent)
 }
