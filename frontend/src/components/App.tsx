@@ -77,7 +77,7 @@ export default function App() {
                                     <ChangePassword/>
                                 </Route>
                                 <Route path="/server/new">
-                                    <NewServerRoute/>
+                                    <NewServerRoute updateServerList={updateServerList}/>
                                 </Route>
                                 <Route path="/console/:serverId" component={DevConsole}/>
                                 <Route path="/">

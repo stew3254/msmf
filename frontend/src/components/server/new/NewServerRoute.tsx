@@ -14,7 +14,11 @@ class CreateServerRequest {
     }
 }
 
-export default function NewServerRoute() {
+interface NewServerRouteProps {
+    updateServerList: () => void
+}
+
+export default function NewServerRoute(props: NewServerRouteProps) {
     const [name, setName] = useState("");
     const [game, setGame] = useState("Minecraft");
     const [port, setPort] = useState(25565);
@@ -27,6 +31,7 @@ export default function NewServerRoute() {
         if (formRef.current.reportValidity()) {
             const data = new CreateServerRequest(name, game, port, version);
             postAPI(data, "server").then(() => {
+                props.updateServerList();
                 history.push("/");
             }).catch(setError);
         }
