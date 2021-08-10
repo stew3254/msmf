@@ -1,23 +1,44 @@
 import * as React from "react";
-import {useState} from "react";
-import {Button, Form} from "react-bootstrap";
-import * as console from "console";
+import {useRef, useState} from "react";
+import {useHistory} from "react-router-dom";
+import {Alert, Button, Form} from "react-bootstrap";
+import {postAPI} from "../../../api/APIFetch";
+
+class CreateServerRequest {
+    version?: string;
+
+    constructor(readonly name: string, readonly game: string, readonly port: number, version: string) {
+        if (version) {
+            this.version = version
+        }
+    }
+}
 
 export default function NewServerRoute() {
     const [name, setName] = useState("");
     const [game, setGame] = useState("Minecraft");
     const [port, setPort] = useState(25565);
     const [version, setVersion] = useState("");
+    const [error, setError] = useState("");
+    const formRef = useRef<HTMLFormElement>();
+    const history = useHistory();
 
     function createServer() {
-        const data = JSON.stringify({name: name, game: game, port: port, version: version});
-        fetch("/api/server", {method: "POST", body: data}).then(console.log)
+        if (formRef.current.reportValidity()) {
+            const data = new CreateServerRequest(name, game, port, version);
+            postAPI(data, "server").then(() => {
+                history.push("/");
+            }).catch(setError);
+        }
     }
 
     return (
         <>
             <h1>New Server</h1>
-            <Form>
+            <Alert variant="danger" show={error.length > 0}>
+                {error}
+            </Alert>
+            <Form ref={formRef}>
                 <Form.Group className="mb-3">
                     <Form.Label>Server Name</Form.Label>
                     <Form.Control type="text" onChange={event => setName(event.target.value)} value={name} required/>
@@ -37,8 +58,8 @@ export default function NewServerRoute() {
 
                 <Form.Group className="mb-3">
                     <Form.Label>Version</Form.Label>
-                    <Form.Control type="text" placeholder="latest" onChange={event => setVersion(event.target.value)}
-                                  value={version}/>
+                    <Form.Control type="text" onChange={event => setVersion(event.target.value)} value={version}
+                                  required/>
                 </Form.Group>
 
                 <Button onClick={createServer}>Create</Button>
