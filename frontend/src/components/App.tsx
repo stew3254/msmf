@@ -55,7 +55,7 @@ export default function App() {
                         <Nav variant="pills" className="flex-column sticky-top top-0">
                             <NavItem>Utilities</NavItem>
                             {servers.map(server => {
-                                return <NavLink as={Link} to={`/console/${server.id}`}>
+                                return <NavLink as={Link} to={`/console/${server.id}`} key={server.id}>
                                     Console {server.name} <Badge pill bg="info">dev</Badge>
                                 </NavLink>
                             })}
