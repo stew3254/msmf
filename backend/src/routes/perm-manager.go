@@ -1,7 +1,9 @@
 package routes
 
 import (
+	"encoding/json"
 	"github.com/gorilla/mux"
+	"gorm.io/gorm"
 	"log"
 	"msmf/database"
 	"msmf/utils"
@@ -133,12 +135,106 @@ func GetUserPerms(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateUserPerms allows changes to a user's user level permission status to be changed
+// TODO FINISH THIS FUNCTION
 func UpdateUserPerms(w http.ResponseWriter, r *http.Request) {
+	// Get user
+	params := mux.Vars(r)
+	username := params["user"]
+
+	// Get token
 	tokenCookie, _ := r.Cookie("token")
 	token := tokenCookie.Value
-	log.Println(token)
 
-	http.Error(w, "", http.StatusNoContent)
+	// Get request body
+	var body []string
+	err := json.NewDecoder(r.Body).Decode(&body)
+	// TODO don't use constant to put a hard limit on how many user permissions a person can send
+	// This right now is just so database queries aren't slow if they are intentionally trying to
+	// blast the database with a useless query
+	if err != nil || len(body) > 10 {
+		utils.WriteJSON(w, http.StatusBadRequest, "Bad request")
+	}
+
+	// Start a transaction
+	err = database.DB.Transaction(func(db *gorm.DB) error {
+		// Make sure the user isn't yourself
+
+		// Check if user has permissions to modify this user
+		hasPerms := utils.CheckPermissions(&utils.PermCheck{
+			FKTable:     "perms_per_users",
+			Perms:       "manage_user_permission",
+			PermTable:   "user_perms",
+			Search:      token,
+			SearchCol:   "token",
+			SearchTable: "users",
+		})
+
+		if hasPerms {
+			// Delete all permissions for this user
+			err = db.Table("perms_per_users ppu").Joins(
+				"INNER JOIN users u on ppu.user_id = u.id",
+			).Where("u.username = ?", username).Delete(&database.PermsPerUser{}).Error
+		} else {
+			// Need to check if this user is still you
+			// Get the user
+			var user database.User
+			err = db.Where("token = ?", token).Find(&user).Error
+			if err != nil {
+				return err
+			} else if user.ID == nil {
+				return errors.New("user doesn't exist")
+			}
+
+			// If you are admin, make sure they can't delete the administrator perm
+			if user.Username == "admin" {
+				// Remove the administrator perm if it exists
+				log.Println(body)
+				body = utils.RemoveFromStrSlice(body, "administrator")
+				log.Println(body)
+			}
+
+			// Delete all permissions for yourself
+			err = db.Table("perms_per_users ppu").Where(
+				"ppu.user_id = ?",
+				*user.ID,
+			).Delete(&database.PermsPerUser{}).Error
+
+			// Complain on error
+			if err != nil {
+				return err
+			}
+
+			// Get user permissions
+			var perms []database.UserPerm
+			err = db.Where("name in ?", body).Find(&perms).Error
+			if err != nil {
+				return err
+				// Not all permissions were found
+			} else if len(perms) != len(body) {
+				return errors.New("at least 1 permission is invalid")
+			}
+
+			log.Println(perms)
+
+			// Create the perms per users
+			ppu := make([]database.PermsPerUser, 0, len(perms))
+			for _, perm := range perms {
+				ppu = append(ppu, database.PermsPerUser{
+					UserID:     *user.ID,
+					UserPermID: *perm.ID,
+				})
+			}
+
+			// Insert the new perms
+			err = db.Create(&ppu).Error
+		}
+		return err
+	})
+
+	if err != nil {
+		utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+	}
+
 }
 
 // GetServerPerms contains all ways to get server level permissions

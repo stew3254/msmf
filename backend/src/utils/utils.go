@@ -16,6 +16,33 @@ import (
 var UserPattern = regexp.MustCompile("[a-z0-9]+")
 var ServerPattern = regexp.MustCompile("[a-z0-9- ]+")
 
+// RemoveFromStrSlice the element if it exists
+func RemoveFromStrSlice(slice []string, value interface{}) (newSlice []string) {
+	// All places of things to skip
+	var indices []int
+	// Find all locations of it
+	for i, item := range slice {
+		if item == value {
+			indices = append(indices, i)
+		}
+	}
+
+	// Exclude all of them
+	for i := 0; i < len(indices); i += 1 {
+		if i == 0 {
+			// Skip that element
+			newSlice = append(newSlice, slice[:indices[i]]...)
+		} else if i < len(indices) {
+			// Add all elements after that one until the next appendix
+			newSlice = append(newSlice, slice[indices[i-1]+1:indices[i]]...)
+		} else {
+			// Add the rest of the elements in the slice after that one
+			newSlice = append(newSlice, slice[indices[i]+1:]...)
+		}
+	}
+	return newSlice
+}
+
 // ToJSON converts to json and logs errors. Simply here to reduce code duplication
 func ToJSON(v interface{}) []byte {
 	out, err := json.Marshal(v)

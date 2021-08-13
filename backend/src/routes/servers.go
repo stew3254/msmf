@@ -263,7 +263,7 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Add Get version name
+	// Get version name
 	var versionName string
 	switch v := body["version"].(type) {
 	case string:

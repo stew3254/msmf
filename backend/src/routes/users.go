@@ -43,6 +43,11 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, &user)
 }
 
+// DeleteUser removes a user from the framework (cannot remove admin though)
+func DeleteUser(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "501 not implemented", http.StatusNotImplemented)
+}
+
 // UpdateUser handles updating user information
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	user := database.User{}
@@ -61,7 +66,7 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	// Get the valid user
 	database.DB.Where("users.token = ?", token).Find(&user)
 
-	// Get all of the form fields
+	// Get all the form fields
 	currPass, currPassExists := body["current_password"]
 	newPass, newPassExists := body["new_password"]
 
