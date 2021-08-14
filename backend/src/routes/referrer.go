@@ -128,7 +128,7 @@ func Refer(w http.ResponseWriter, r *http.Request) {
 
 	// Grab the user and referral code
 	var referrer database.Referrer
-	err := database.DB.Preload(clause.Associations).First(&referrer, code).Error
+	err := database.DB.Preload(clause.Associations).Where("code = ?", code).First(&referrer).Error
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusNotFound, "Not Found")
 		return
