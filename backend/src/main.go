@@ -242,7 +242,7 @@ func main() {
 	// Start server
 	log.Println("Web server is now listening for connections")
 	if ssl {
-		log.Fatal(srv.ListenAndServeTLS("certs/cert.crt", "certs/key.pem"))
+		log.Fatal(srv.ListenAndServeTLS("certs/cert.pem", "certs/privkey.pem"))
 	} else {
 		log.Fatal(srv.ListenAndServe())
 	}

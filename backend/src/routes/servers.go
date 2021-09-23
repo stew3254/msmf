@@ -129,19 +129,21 @@ func canViewServer(ownerName, serverName, token string) (bool, error) {
 	)
 
 	// See if they have any related user level perms
-	serverPermsQuery := database.DB.Table("servers s").Joins(
+	serverPermsQuery := database.DB.Select("s.id").Table("servers s").Joins(
 		"INNER JOIN server_perms_per_users sppu ON s.id = sppu.server_id",
 	).Joins(
 		"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
 	).Joins(
 		"INNER JOIN users u ON sppu.user_id = u.id",
+	).Joins(
+		"INNER JOIN users o ON s.owner_id = o.id",
 	).Where(
-		"u.token = ? AND u.username AND REPLACE(LOWER(s.name), ' ', '-') = ?",
+		"u.token = ? AND o.username = ? AND REPLACE(LOWER(s.name), ' ', '-') = ?",
 		token, ownerName, serverName,
 	)
 
 	// Join the two queries
-	err = database.DB.Distinct("sp.*").Table("(?) as sp", serverPermsQuery).Joins(
+	err = database.DB.Distinct("sp.id").Table("(?) as sp", serverPermsQuery).Joins(
 		"FULL OUTER JOIN (?) as o ON sp.id = o.id", ownedServersQuery,
 	).Count(&count).Error
 
@@ -306,9 +308,9 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 			"versions.tag = ? AND games.id = ?",
 			versionName,
 			game.ID,
-		).First(&version).Error
-		log.Println(err)
-		if err != nil {
+		).Find(&version).Error
+
+		if err != nil || version.ID == nil {
 			// Add the version to the db
 			version = database.Version{
 				Tag:  versionName,
@@ -417,8 +419,10 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
 		).Where("u.token = ?", token)
 
 		// Get servers they have perms for
-		serverPermsQuery := database.DB.Preload(clause.Associations).Joins(
-			"INNER JOIN server_perms_per_users sppu ON servers.id = sppu.server_id",
+		serverPermsQuery := database.DB.Select("s.*").Table(
+			"servers s",
+		).Joins(
+			"INNER JOIN server_perms_per_users sppu ON s.id = sppu.server_id",
 		).Joins(
 			"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
 		).Joins(
@@ -428,9 +432,13 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
 		)
 
 		// Join the two queries
-		err = database.DB.Distinct("sp.*").Table("(?) as sp", serverPermsQuery).Joins(
+		err = database.DB.Distinct("sp.*").Preload(clause.Associations).Table(
+			"(?) as sp", serverPermsQuery,
+		).Joins(
 			"FULL OUTER JOIN (?) as o ON sp.id = o.id", ownedServersQuery,
 		).Order(order).Find(&servers).Error
+
+		log.Println("DEBUG:", err)
 
 		// Some sort of db error
 		if err != nil {

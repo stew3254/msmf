@@ -5,10 +5,10 @@ import (
 	"errors"
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"msmf/database"
 	"msmf/utils"
 	"net/http"
-	"strconv"
 )
 
 // getUserPerms is a simple helper function to get user perms for a user
@@ -25,54 +25,6 @@ func getUserPerms(db *gorm.DB, userID int) (perms []database.UserPerm, err error
 	return myPerms, err
 }
 
-// GetPerms will see which permissions a user has in the webserver
-// If the user supplies a serverID, it will show which users have permissions
-// they have for said server. Given both, it will query server permissions only for that user
-// TODO finish this function
-func GetPerms(w http.ResponseWriter, r *http.Request) {
-	resp := make(map[string]interface{})
-	query := r.URL.Query()
-	username := query.Get("username")
-	serverID, err := strconv.Atoi(query.Get("server_id"))
-	// See if a server id was actually supplied, and if it's bad then error
-	if len(query.Get("server_id")) > 0 && err != nil {
-		utils.ErrorJSON(w, http.StatusBadRequest, "Server id must be an integer value")
-		return
-	}
-
-	// See if the user exists
-	if len(username) > 0 {
-		// Base permissions struct
-		type Permission struct {
-			Name        string
-			Description string
-		}
-		var permissions []Permission
-
-		// We aren't looking for server specific permissions
-		if serverID == 0 {
-			database.DB.Table("user_perms up").Select("up.name, up.description").Joins(
-				"INNER JOIN perms_per_users ppu ON ppu.user_perm_id = up.id",
-			).Joins(
-				"INNER JOIN users u ON u.id = ppu.user_id",
-			).Where("u.username = ?", username).Scan(&permissions)
-		} else {
-			database.DB.Table("server_perms sp").Select("sp.name, sp.description").Joins(
-				"INNER JOIN server_perms_per_users ppu ON ppu.server_perm_id = sp.id",
-			).Joins(
-				"INNER JOIN users u ON u.id = ppu.user_id",
-			).Where("u.username = ? AND ppu.server_id = ?", username, serverID).Scan(&permissions)
-		}
-		if permissions == nil {
-			permissions = []Permission{}
-		}
-		resp["permissions"] = permissions
-	}
-
-	// Write out the response
-	utils.WriteJSON(w, http.StatusOK, &resp)
-}
-
 // GetUserPerms contains all ways to get user level permissions
 func GetUserPerms(w http.ResponseWriter, r *http.Request) {
 	tokenCookie, _ := r.Cookie("token")
@@ -80,7 +32,7 @@ func GetUserPerms(w http.ResponseWriter, r *http.Request) {
 
 	// Get url parameters
 	params := mux.Vars(r)
-	name, exists := params["user"]
+	username, exists := params["user"]
 
 	// See if the user has permissions to change other people's permissions
 	hasPerms := utils.CheckPermissions(&utils.PermCheck{
@@ -117,7 +69,7 @@ func GetUserPerms(w http.ResponseWriter, r *http.Request) {
 	} else if hasPerms && exists {
 		// Get user
 		var user database.User
-		database.DB.Where("username = ?", name).Find(&user)
+		database.DB.Where("username = ?", username).Find(&user)
 
 		// They don't exist
 		if user.ID == nil {
@@ -126,7 +78,7 @@ func GetUserPerms(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Look for perms for a specific user
-		err = query.Where("username = ?", name).Find(&result).Error
+		err = query.Where("username = ?", username).Find(&result).Error
 		// They don't have perms and they didn't look for a particular person
 	} else if !exists {
 		// They are just going to get perms for themselves
@@ -297,7 +249,210 @@ func UpdateUserPerms(w http.ResponseWriter, r *http.Request) {
 
 // GetServerPerms contains all ways to get server level permissions
 func GetServerPerms(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "501 not implemented", http.StatusNotImplemented)
+	// Define the result type
+	type Result struct {
+		Owner       string `json:"owner"`
+		Name        string `json:"name"`
+		Username    string `json:"username"`
+		Permission  string `json:"permission"`
+		Description string `json:"description"`
+	}
+
+	var result []Result
+	var err error
+
+	tokenCookie, _ := r.Cookie("token")
+	token := tokenCookie.Value
+
+	// Get url parameters
+	params := mux.Vars(r)
+	owner, serverExists := params["owner"]
+	name, serverExists := params["name"]
+	username, userExists := params["user"]
+
+	// Create a query to get user perms
+	query := database.DB.Table("server_perms_per_users sppu").Select(
+		"u.username as username, " +
+			"sp.name as permission, " +
+			"sp.description as description, " +
+			"s.name as name, " +
+			"o.username as owner",
+	).Joins(
+		"INNER JOIN users u ON sppu.user_id = u.id",
+	).Joins(
+		"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
+	).Joins(
+		"INNER JOIN servers s ON sppu.server_id = s.id",
+	).Joins(
+		"INNER JOIN users o ON s.owner_id = o.id",
+	)
+
+	// They are looking for all servers
+	if !serverExists && !userExists {
+		// See if the user has user level permissions to change other people's permissions
+		hasPerms := utils.CheckPermissions(&utils.PermCheck{
+			FKTable:     "perms_per_users",
+			Perms:       "manage_server_permission",
+			PermTable:   "user_perms",
+			Search:      token,
+			SearchCol:   "token",
+			SearchTable: "users",
+		})
+
+		// Check more fine-grained detail since they can't view all servers
+		if !hasPerms {
+			// Get owned servers
+			ownedServersQuery := database.DB.Select("s.*").Table("servers s").Joins(
+				"INNER JOIN users u ON s.owner_id = u.id",
+			).Where("u.token = ?", token)
+
+			// Get servers they have perms for
+			serverPermsQuery := database.DB.Preload(clause.Associations).Select(
+				"servers.id as id",
+			).Joins(
+				"INNER JOIN server_perms_per_users sppu ON servers.id = sppu.server_id",
+			).Joins(
+				"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
+			).Joins(
+				"INNER JOIN users u ON sppu.user_id = u.id",
+			).Where(
+				"u.token = ?", token,
+			)
+
+			// TODO need to test this
+			// Join the two queries
+			err = database.DB.Distinct(
+				"u.username as username, "+
+					"sp.name as permission, "+
+					"sp.description as description, "+
+					"s.name as name, "+
+					"o.username as owner",
+			).Table("(?) as serv", serverPermsQuery).Joins(
+				"FULL OUTER JOIN (?) as other ON serv.id = other.id", ownedServersQuery,
+			).Joins(
+				"INNER JOIN server_perms_per_users sppu ON serv.id = sppu.server_id",
+			).Joins(
+				"INNER JOIN server_perms sp ON sppu.perm_id = sp.id",
+			).Joins(
+				"INNER JOIN users u ON sppu.user_id = u.id",
+			).Joins(
+				"INNER JOIN users o ON serv.owner_id = o.id",
+			).Find(&result).Error
+
+			// Tell them there is nothing
+			if err != nil {
+				utils.WriteJSON(w, http.StatusOK, &[]Result{})
+			} else {
+				// Show them the servers
+				utils.WriteJSON(w, http.StatusOK, &result)
+			}
+			return
+		}
+
+		// Get all server perms per server
+		err = query.Find(&result).Error
+
+	} else if serverExists {
+		// See if they can view a sever
+		canView, err := canViewServer(owner, name, token)
+
+		// Can't view the server
+		if !canView {
+			utils.ErrorJSON(w, http.StatusForbidden, "Forbidden")
+			return
+		} else if err != nil {
+			utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		// Get all server perms for a specific server
+		err = query.Where(
+			"o.username = ? AND REPLACE(LOWER(s.name), ' ', '-') = ?",
+			owner,
+			name,
+		).Find(&result).Error
+
+	} else if userExists {
+		// See if the user is yourself
+		var user database.User
+		database.DB.Where("users.username = ?", username).Find(&user)
+
+		// User doesn't exist
+		if user.ID == nil {
+			utils.ErrorJSON(w, http.StatusBadRequest, "User does not exist")
+			return
+		}
+
+		// This user is yourself
+		if user.Token == token {
+			// Get all servers you can see
+			query.Where("users.token = ?", token).Find(&result)
+			utils.WriteJSON(w, http.StatusOK, &result)
+		}
+
+		// See if the user has user level permissions to change other people's permissions
+		hasPerms := utils.CheckPermissions(&utils.PermCheck{
+			FKTable:     "perms_per_users",
+			Perms:       "manage_server_permission",
+			PermTable:   "user_perms",
+			Search:      token,
+			SearchCol:   "token",
+			SearchTable: "users",
+		})
+
+		// Can't view all servers to find this user
+		if !hasPerms {
+			// Create a query to count all instances you and this user share in a server
+			findAll := database.DB.Table("server_perms_per_users sppu").Select(
+				"sppu.server_id as id, count(u.id)",
+			).Joins(
+				"INNER JOIN users u on u.id = sppu.user_id",
+			).Where(
+				"u.token = ? AND u.username = ?", token, username,
+			).Group("sppu.server_id")
+
+			// TODO FINISH THIS
+			query.Joins("INNER JOIN (?) s ON s.id = sppu.server_id", findAll).Where(
+				"s.count = 2 AND u.username = ?", username,
+			).Find(&result)
+
+		}
+
+		// Get all server perms for a specific user
+		err = query.Where("u.username = ?", username).Find(&result).Error
+
+	} else {
+		// See if they can view the sever
+		canView, err := canViewServer(owner, name, token)
+
+		// Can't view the server
+		if !canView {
+			utils.ErrorJSON(w, http.StatusForbidden, "Forbidden")
+			return
+		}
+		if err != nil {
+			utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		// Get all server perms for a specific server and a specific user
+		err = query.Where(
+			"o.username = ? AND REPLACE(LOWER(s.name), ' ', '-') = ? AND u.username = ?",
+			owner,
+			name,
+			username,
+		).Find(&result).Error
+	}
+
+	// Complain on error
+	if err != nil {
+		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Write out the results and exit
+	utils.WriteJSON(w, http.StatusOK, &result)
+	return
 }
 
 // UpdateServerPerms allows changes to a user's server level permission status to be changed

@@ -5,7 +5,6 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm/clause"
-	"math/rand"
 	"net/http"
 	"time"
 
@@ -83,10 +82,6 @@ func CreateReferral(w http.ResponseWriter, r *http.Request) {
 		return
 		// Create the invite code
 	}
-	// Make sure to seed the random
-	// Could use crypto random, but this doesn't really need to be secure
-	// It's not a secret, nor does it really matter
-	rand.Seed(time.Now().Unix())
 
 	// Loop until a valid code is found
 	for {
