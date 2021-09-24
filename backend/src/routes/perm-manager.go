@@ -287,71 +287,29 @@ func GetServerPerms(w http.ResponseWriter, r *http.Request) {
 		"INNER JOIN users o ON s.owner_id = o.id",
 	)
 
-	// They are looking for all servers
-	if !serverExists && !userExists {
-		// See if the user has user level permissions to change other people's permissions
-		hasPerms := utils.CheckPermissions(&utils.PermCheck{
-			FKTable:     "perms_per_users",
-			Perms:       "manage_server_permission",
-			PermTable:   "user_perms",
-			Search:      token,
-			SearchCol:   "token",
-			SearchTable: "users",
-		})
+	// They're looking for a specific server and user
+	if serverExists && userExists {
 
-		// Check more fine-grained detail since they can't view all servers
-		if !hasPerms {
-			// Get owned servers
-			ownedServersQuery := database.DB.Select("s.*").Table("servers s").Joins(
-				"INNER JOIN users u ON s.owner_id = u.id",
-			).Where("u.token = ?", token)
+		// See if they can view the sever
+		canView, err := canViewServer(owner, name, token)
 
-			// Get servers they have perms for
-			serverPermsQuery := database.DB.Preload(clause.Associations).Select(
-				"servers.id as id",
-			).Joins(
-				"INNER JOIN server_perms_per_users sppu ON servers.id = sppu.server_id",
-			).Joins(
-				"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
-			).Joins(
-				"INNER JOIN users u ON sppu.user_id = u.id",
-			).Where(
-				"u.token = ?", token,
-			)
-
-			// TODO need to test this
-			// Join the two queries
-			err = database.DB.Distinct(
-				"u.username as username, "+
-					"sp.name as permission, "+
-					"sp.description as description, "+
-					"s.name as name, "+
-					"o.username as owner",
-			).Table("(?) as serv", serverPermsQuery).Joins(
-				"FULL OUTER JOIN (?) as other ON serv.id = other.id", ownedServersQuery,
-			).Joins(
-				"INNER JOIN server_perms_per_users sppu ON serv.id = sppu.server_id",
-			).Joins(
-				"INNER JOIN server_perms sp ON sppu.perm_id = sp.id",
-			).Joins(
-				"INNER JOIN users u ON sppu.user_id = u.id",
-			).Joins(
-				"INNER JOIN users o ON serv.owner_id = o.id",
-			).Find(&result).Error
-
-			// Tell them there is nothing
-			if err != nil {
-				utils.WriteJSON(w, http.StatusOK, &[]Result{})
-			} else {
-				// Show them the servers
-				utils.WriteJSON(w, http.StatusOK, &result)
-			}
+		// Can't view the server
+		if !canView {
+			utils.ErrorJSON(w, http.StatusForbidden, "Forbidden")
+			return
+		}
+		if err != nil {
+			utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		// Get all server perms per server
-		err = query.Find(&result).Error
-
+		// Get all server perms for a specific server and a specific user
+		err = query.Where(
+			"o.username = ? AND REPLACE(LOWER(s.name), ' ', '-') = ? AND u.username = ?",
+			owner,
+			name,
+			username,
+		).Find(&result).Error
 	} else if serverExists {
 		// See if they can view a sever
 		canView, err := canViewServer(owner, name, token)
@@ -422,26 +380,73 @@ func GetServerPerms(w http.ResponseWriter, r *http.Request) {
 		err = query.Where("u.username = ?", username).Find(&result).Error
 
 	} else {
-		// See if they can view the sever
-		canView, err := canViewServer(owner, name, token)
+		// See if the user has user level permissions to change other people's permissions
+		hasPerms := utils.CheckPermissions(&utils.PermCheck{
+			FKTable:     "perms_per_users",
+			Perms:       "manage_server_permission",
+			PermTable:   "user_perms",
+			Search:      token,
+			SearchCol:   "token",
+			SearchTable: "users",
+		})
 
-		// Can't view the server
-		if !canView {
-			utils.ErrorJSON(w, http.StatusForbidden, "Forbidden")
+		// Check more fine-grained detail since they can't view all servers
+		if !hasPerms {
+			// Get owned servers
+			ownedServersQuery := database.DB.Select("s.*").Table("servers s").Joins(
+				"INNER JOIN users u ON s.owner_id = u.id",
+			).Where("u.token = ?", token)
+
+			// Get servers they have perms for
+			serverPermsQuery := database.DB.Select(
+				"s.id as id, s.owner_id",
+			).Table(
+				"servers s",
+			).Joins(
+				"INNER JOIN server_perms_per_users sppu ON s.id = sppu.server_id",
+			).Joins(
+				"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
+			).Joins(
+				"INNER JOIN users u ON sppu.user_id = u.id",
+			).Where(
+				"u.token = ?", token,
+			)
+
+			// Join the two queries
+			err = database.DB.Distinct(
+				"u.username as username, "+
+					"sp.name as permission, "+
+					"sp.description as description, "+
+					"s.name as name, "+
+					"o.username as owner",
+			).Preload(
+				clause.Associations,
+			).Table("(?) as serv", serverPermsQuery).Joins(
+				"FULL OUTER JOIN (?) as other ON serv.id = other.id", ownedServersQuery,
+			).Joins(
+				"INNER JOIN server_perms_per_users sppu ON serv.id = sppu.server_id",
+			).Joins(
+				"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
+			).Joins(
+				"INNER JOIN users u ON sppu.user_id = u.id",
+			).Joins(
+				"INNER JOIN servers s on serv.id = s.id",
+			).Joins(
+				"INNER JOIN users o ON s.owner_id = o.id",
+			).Find(&result).Error
+
+			// Tell them there is nothing
+			if err != nil {
+				utils.WriteJSON(w, http.StatusOK, &[]Result{})
+			} else {
+				// Show them the servers
+				utils.WriteJSON(w, http.StatusOK, &result)
+			}
 			return
 		}
-		if err != nil {
-			utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
-			return
-		}
 
-		// Get all server perms for a specific server and a specific user
-		err = query.Where(
-			"o.username = ? AND REPLACE(LOWER(s.name), ' ', '-') = ? AND u.username = ?",
-			owner,
-			name,
-			username,
-		).Find(&result).Error
+		// Get all server perms per server
+		err = query.Find(&result).Error
 	}
 
 	// Complain on error
