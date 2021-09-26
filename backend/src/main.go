@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"msmf/utils"
 	"net/http"
 	"os"
 	"time"
@@ -12,6 +11,7 @@ import (
 
 	"msmf/database"
 	"msmf/routes"
+	"msmf/utils"
 )
 
 func main() {
@@ -171,11 +171,6 @@ func main() {
 		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/perm/{user:[a-z0-9]+}",
 		routes.GetServerPerms,
 	).Methods("GET")
-	// Update permissions assigned to yourself for a particular server
-	api.HandleFunc(
-		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/perm/me",
-		routes.UpdateServerPerms,
-	).Methods("PUT")
 	// Update permissions assigned to a particular user for a particular server
 	api.HandleFunc(
 		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/perm/{user:[a-z0-9]+}",

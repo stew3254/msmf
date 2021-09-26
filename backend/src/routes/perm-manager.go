@@ -25,6 +25,28 @@ func getUserPerms(db *gorm.DB, userID int) (perms []database.UserPerm, err error
 	return myPerms, err
 }
 
+// getServerPerms is a simple helper function to get server perms for a user
+func getServerPerms(db *gorm.DB, owner string, serverName string, userID int) (perms []database.
+	ServerPerm,
+	err error) {
+	var myPerms []database.ServerPerm
+	err = db.Joins(
+		"INNER JOIN server_perms_per_users sppu ON sppu.server_perm_id = server_perms.id",
+	).Joins(
+		"INNER JOIN servers s ON s.id = sppu.server_id",
+	).Joins(
+		"INNER JOIN users u ON u.id = sppu.user_id",
+	).Joins(
+		"INNER JOIN users o ON o.id = s.owner_id",
+	).Where(
+		"o.username = ? AND REPLACE(LOWER(s.name), ' ', '-') = ? AND u.id = ?",
+		owner,
+		serverName,
+		userID,
+	).Find(&myPerms).Error
+	return myPerms, err
+}
+
 // GetUserPerms contains all ways to get user level permissions
 func GetUserPerms(w http.ResponseWriter, r *http.Request) {
 	tokenCookie, _ := r.Cookie("token")
@@ -102,7 +124,7 @@ func GetUserPerms(w http.ResponseWriter, r *http.Request) {
 
 // UpdateUserPerms allows changes to a user's user level permission status to be changed
 func UpdateUserPerms(w http.ResponseWriter, r *http.Request) {
-	// Get myUser
+	// Get the user
 	params := mux.Vars(r)
 	username := params["user"]
 
@@ -223,7 +245,7 @@ func UpdateUserPerms(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// If they were being given perms at all, add them
-			if len(body) > 0 {
+			if len(perms) > 0 {
 				// Create the perms per users
 				ppu := make([]database.PermsPerUser, 0, len(perms))
 				for _, perm := range perms {
@@ -462,5 +484,294 @@ func GetServerPerms(w http.ResponseWriter, r *http.Request) {
 
 // UpdateServerPerms allows changes to a user's server level permission status to be changed
 func UpdateServerPerms(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "501 not implemented", http.StatusNotImplemented)
+	// Get myUser
+	params := mux.Vars(r)
+	owner := params["owner"]
+	name := params["name"]
+	username := params["user"]
+
+	// Get token
+	tokenCookie, _ := r.Cookie("token")
+	token := tokenCookie.Value
+
+	// Get request body
+	var body []string
+	err := json.NewDecoder(r.Body).Decode(&body)
+	// TODO don't use constant to put a hard limit on how many myUser permissions a person can send
+	// This right now is just so database queries aren't slow if they are intentionally trying to
+	// blast the database with a useless query
+	if err != nil || len(body) > 10 {
+		utils.WriteJSON(w, http.StatusBadRequest, "Bad request")
+	}
+
+	// Get your user
+	var myUser database.User
+	err = database.DB.Where("token = ?", token).Find(&myUser).Error
+	if err != nil {
+		utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// See if the username is yourself or admin
+	if username == myUser.Username || username == "admin" {
+		utils.ErrorJSON(w, http.StatusForbidden, "Cannot update user permissions for this user")
+		return
+	}
+
+	// Start a transaction
+	err = database.DB.Transaction(func(db *gorm.DB) error {
+		// Check if you have permissions to modify perms for a user anyways
+		hasPerms := utils.CheckPermissions(&utils.PermCheck{
+			FKTable:     "server_perms_per_users",
+			Perms:       []string{"manage_user_permission", "manage_server_permission"},
+			PermTable:   "server_perms",
+			Search:      token,
+			SearchCol:   "token",
+			SearchTable: "users",
+		})
+
+		// The user has perms to add any perms they want
+		if hasPerms {
+			// Get server permissions from supplied list
+			var perms []database.ServerPerm
+			err = db.Where("name in ?", body).Find(&perms).Error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
+				return err
+				// Not all permissions were found
+			} else if len(perms) != len(body) {
+				utils.ErrorJSON(w, http.StatusBadRequest, "at least 1 permission is invalid")
+				return err
+			}
+
+			// Get this user
+			var user database.User
+			err = db.Where("username = ?", username).Find(&user).Error
+
+			// Complain on error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+				return err
+			} else if user.ID == nil {
+				utils.ErrorJSON(w, http.StatusBadRequest, "cannot find this user")
+				return err
+			}
+
+			// Delete all user level perms for this user
+			err = db.Table("server_perms_per_users sppu").Where(
+				"sppu.user_id = ?",
+				*user.ID,
+			).Delete(&database.PermsPerUser{}).Error
+
+			// Complain on error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+				return err
+			}
+
+			// Get the server
+			var server *database.Server
+			server, err = getServer(r, true)
+
+			// Complain on error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+				return err
+			} else if server.ID == nil {
+				utils.ErrorJSON(w, http.StatusBadRequest, "Server doesn't exist")
+				return err
+			}
+
+			// If they were being given perms at all, add them
+			if len(body) > 0 {
+				// Create the perms per users
+				sppu := make([]database.ServerPermsPerUser, 0, len(perms))
+				for _, perm := range perms {
+					sppu = append(sppu, database.ServerPermsPerUser{
+						UserID:       *user.ID,
+						ServerPermID: *perm.ID,
+						ServerID:     *server.ID,
+					})
+				}
+
+				// Insert the new perms for this user
+				err = db.Create(&sppu).Error
+				if err != nil {
+					utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+					return err
+				}
+			}
+		} else {
+			// Check if you have permissions to modify this user
+			hasPerms = utils.CheckPermissions(&utils.PermCheck{
+				FKTable:     "server_perms_per_users",
+				Perms:       "manage_permissions",
+				PermTable:   "server_perms",
+				Search:      token,
+				SearchCol:   "token",
+				SearchTable: "users",
+			})
+
+			if !hasPerms {
+				canView, err := canViewServer(owner, name, username)
+				if err != nil {
+					utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+				} else if canView {
+					utils.ErrorJSON(w, http.StatusForbidden, "Forbidden")
+				} else {
+					utils.ErrorJSON(w, http.StatusNotFound, "Not Found")
+				}
+				return err
+			}
+
+			// Get all user permissions for yourself
+			var myUserPerms []database.UserPerm
+			myUserPerms, err = getUserPerms(db, *myUser.ID)
+
+			// Complain on error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
+				return err
+			}
+
+			// Get all server permissions for yourself
+			var myServerPerms []database.ServerPerm
+			myServerPerms, err = getServerPerms(db, owner, name, *myUser.ID)
+
+			// Complain on error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
+				return err
+			}
+
+			// Create a map to check user perms later
+			myUserPermsMap := make(map[string]bool)
+			for _, perm := range myUserPerms {
+				myUserPermsMap[perm.Name] = true
+			}
+
+			// Create a map to check perms later
+			myServerPermsMap := make(map[string]bool)
+			for _, perm := range myServerPerms {
+				myServerPermsMap[perm.Name] = true
+			}
+
+			// Get server permissions from supplied list
+			var perms []database.ServerPerm
+			err = db.Where("name in ?", body).Find(&perms).Error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
+				return err
+				// Not all permissions were found
+			} else if len(perms) != len(body) {
+				utils.ErrorJSON(w, http.StatusBadRequest, "at least 1 permission is invalid")
+				return err
+			}
+
+			// If you don't have valid permissions
+			if !myUserPermsMap["administrator"] &&
+				!myUserPermsMap["manage_server_permission"] &&
+				!myServerPermsMap["administrator"] {
+				// Make sure added perms aren't something you don't already have
+				for _, perm := range body {
+					if !myServerPermsMap[perm] {
+						utils.ErrorJSON(
+							w,
+							http.StatusBadRequest,
+							"cannot assign permission you don't already have yourself",
+						)
+						return err
+					}
+				}
+			}
+
+			// Get this user
+			var user database.User
+			err = db.Where("username = ?", username).Find(&user).Error
+
+			// Complain on error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+				return err
+			} else if user.ID == nil {
+				utils.ErrorJSON(w, http.StatusBadRequest, "cannot find this user")
+				return err
+			}
+
+			// Get user's exising permissions
+			var usersServerPerms []database.ServerPerm
+			usersServerPerms, err = getServerPerms(db, owner, name, *user.ID)
+
+			// Complain on error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+				return err
+			}
+
+			// Add any relevant missing perms so the user doesn't lose things
+			// that aren't allowed to be touched
+			for _, perm := range usersServerPerms {
+				// If the perm doesn't exist, and you're not admin, add it
+				if !myUserPermsMap["administrator"] &&
+					!myUserPermsMap["manage_server_permission"] &&
+					!myServerPermsMap["administrator"] &&
+					!myUserPermsMap[perm.Name] {
+					perms = append(perms, perm)
+				}
+			}
+
+			// Get the server
+			var server *database.Server
+			server, err = getServer(r, true)
+
+			// Complain on error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+				return err
+			} else if server.ID == nil {
+				utils.ErrorJSON(w, http.StatusBadRequest, "Server doesn't exist")
+				return err
+			}
+
+			// Delete all server level perms for this user
+			// err = db.Raw(
+			// 	"DELETE FROM server_perms_per_servers where server_id = ? AND user_id = ?",
+			// 	*server.ID,
+			// 	*user.ID,
+			// ).Error
+
+			err = db.Where(
+				"server_id = ? AND user_id = ?",
+				*server.ID,
+				*user.ID,
+			).Delete(&database.ServerPermsPerUser{}).Error
+
+			// Complain on error
+			if err != nil {
+				utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+				return err
+			}
+
+			// If they were being given perms at all, add them
+			if len(perms) > 0 {
+				// Create the perms per users
+				sppu := make([]database.ServerPermsPerUser, 0, len(perms))
+				for _, perm := range perms {
+					sppu = append(sppu, database.ServerPermsPerUser{
+						ServerID:     *server.ID,
+						ServerPermID: *perm.ID,
+						UserID:       *user.ID,
+					})
+				}
+
+				// Insert the new perms for this user
+				err = db.Create(&sppu).Error
+				if err != nil {
+					utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+					return err
+				}
+			}
+		}
+		return err
+	})
 }

@@ -46,7 +46,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 			SameSite: http.SameSiteStrictMode,
 		})
 		// http.Redirect(w, r, "/", http.StatusFound)
-		// DEBUG
 		http.ServeFile(w, r, "static/index.html")
 		return
 	}

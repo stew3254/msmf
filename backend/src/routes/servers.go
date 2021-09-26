@@ -438,8 +438,6 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
 			"FULL OUTER JOIN (?) as o ON sp.id = o.id", ownedServersQuery,
 		).Order(order).Find(&servers).Error
 
-		log.Println("DEBUG:", err)
-
 		// Some sort of db error
 		if err != nil {
 			utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
