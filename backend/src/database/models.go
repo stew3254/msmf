@@ -39,13 +39,13 @@ type DiscordIntegration struct {
 	Username   *string `gorm:"type: varchar(64)" json:"username"`
 	AvatarURL  *string `gorm:"type: text" json:"avatar_url"`
 	Active     bool    `gorm:"not null; type: bool" json:"active"`
-	ServerID   *int    `gorm:"index:server_integration,unique" json:"server_id"`
+	ServerID   *int    `gorm:"index:server_integration,unique" json:"-"`
 	Server     Server  `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:SET NULL" json:"-"`
 }
 
 // Server Model
 type Server struct {
-	ID        *int    `gorm:"primaryKey; type:serial" json:"id"`
+	ID        *int    `gorm:"primaryKey; type:serial" json:"-"`
 	Port      uint16  `gorm:"not null; unique; check: Port < 65536; check: Port > 0" json:"port"`
 	Name      string  `gorm:"type: varchar(64)" json:"name"`
 	Running   bool    `gorm:"not null; type: bool" json:"running"`
@@ -68,6 +68,7 @@ type ServerPerm struct {
 type User struct {
 	ID              *int      `gorm:"primaryKey; type:serial" json:"-"`
 	Username        string    `gorm:"type: varchar(32) not null unique" json:"username"`
+	Display         *string   `gorm:"type: varchar(64)" json:"display"`
 	Password        []byte    `gorm:"type: bytea not null" json:"-"`
 	Token           string    `gorm:"type varchar(64) not null unique" json:"-"`
 	TokenExpiration time.Time `json:"-"`
@@ -84,7 +85,7 @@ type UserPerm struct {
 
 // Referrer Model. Where active user referrals reside
 type Referrer struct {
-	Code       int       `gorm:"primaryKey" json:"code"`
+	Code       string    `gorm:"primaryKey; type:varchar(6)" json:"code"`
 	Expiration time.Time `gorm:"not null" json:"expiration"`
 	UserID     *int      `gorm:"not null" json:"-"`
 	User       User      `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"user"`
@@ -108,7 +109,7 @@ type ModsPerServer struct {
 
 // PermsPerUser Model. Foriegn Key table
 type PermsPerUser struct {
-	UserID     int      `gorm:"not null; index:perms_per_user,unique" json:"userid"`
+	UserID     int      `gorm:"not null; index:perms_per_user,unique" json:"user_id"`
 	User       User     `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE" json:"user"`
 	UserPermID int      `gorm:"not null; index:perms_per_user,unique" json:"user_perm_id"`
 	UserPerm   UserPerm `gorm:"constraint:OnUpdate:CASCADE,ONDELETE:CASCADE" json:"user_perm"`

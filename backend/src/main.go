@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"msmf/utils"
 	"net/http"
 	"os"
 	"time"
@@ -12,6 +11,7 @@ import (
 
 	"msmf/database"
 	"msmf/routes"
+	"msmf/utils"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 	// Used for debugging purposes
 	// database.DropTables()
 
-	// Create all of the tables with constraints and add all necessary starting information
+	// Create all the tables with constraints and add all necessary starting information
 	// if it doesn't already exist
 	database.MakeDB()
 
@@ -57,50 +57,144 @@ func main() {
 
 	// Handle logins
 	router.HandleFunc("/login", routes.Login).Methods("POST")
-	// Handle changing password
-	router.HandleFunc("/change-password", routes.ChangePassword).Methods("POST")
 
 	// Handle API calls
 	api := router.PathPrefix("/api").Subrouter()
 	api.NotFoundHandler = NotFound{}
 	api.MethodNotAllowedHandler = MethodNotAllowed{}
 
-	// Handle calls to create servers
-	api.HandleFunc("/server", routes.CreateServer).Methods("POST")
-	// Handle calls to list servers
-	api.HandleFunc("/server", routes.GetServers).Methods("GET")
-	// Handle calls to view a server
-	api.HandleFunc("/server/{id:[0-9]+}", routes.GetServer).Methods("GET")
-	// Handle calls to update a server
-	api.HandleFunc("/server/{id:[0-9]+}", routes.UpdateServer).Methods("PATCH")
-	// Handle calls to delete servers
-	api.HandleFunc("/server/{id:[0-9]+}", routes.DeleteServer).Methods("DELETE")
-	// Handle calls to start a server
-	api.HandleFunc("/server/{id:[0-9]+}/start", routes.StartServer).Methods("POST")
-	// Handle calls to stop a server
-	api.HandleFunc("/server/{id:[0-9]+}/stop", routes.StopServer).Methods("POST")
-	// Handle calls to restart a server
-	api.HandleFunc("/server/{id:[0-9]+}/restart", routes.RestartServer).Methods("POST")
-
-	// Handle websocket connections for server consoles
-	api.HandleFunc("/ws/server/{id:[0-9]+}", routes.WsServerHandler)
-
-	// Handle creating and updating integrations with Discord
-	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.MakeIntegration).Methods("PUT")
-	// Handle deleting integrations with Discord
-	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.DeleteIntegration).Methods("DELETE")
-	// Handle getting an integration with Discord
-	api.HandleFunc("/discord/server/{id:[0-9]+}", routes.GetIntegration).Methods("GET")
-
+	// Handle API calls for referrals
 	// Get existing referral codes
 	api.HandleFunc("/refer", routes.GetReferrals).Methods("GET")
 	// Create new referral codes
 	api.HandleFunc("/refer", routes.CreateReferral).Methods("POST")
 	// Handle referral code
-	api.HandleFunc("/refer/{id:[0-9]+}", routes.Refer).Methods("GET", "POST")
+	api.HandleFunc("/refer/{code:[a-zA-Z0-9]+}", routes.Refer).Methods("GET", "POST")
 
-	// Get user permissions
-	api.HandleFunc("/perm", routes.GetPerms).Methods("GET")
+	// Handle API calls for users
+	// Get a list of all users
+	api.HandleFunc("/user", routes.GetUsers).Methods("GET")
+	// Get your information
+	api.HandleFunc("/user/me", routes.GetUser).Methods("GET")
+	// Get information about a specific person ('me' and 'perm' are an invalid usernames)
+	api.HandleFunc("/user/{user:[a-z0-9]+}", routes.GetUser).Methods("GET")
+	// Update your information (such as display name and changing password)
+	api.HandleFunc("/user/me", routes.UpdateUser).Methods("PATCH")
+	// Get user permissions assigned to all relevant users
+	api.HandleFunc("/user/perm", routes.GetUserPerms).Methods("GET")
+	// Delete your user account
+	api.HandleFunc("/user/me", routes.DeleteUser).Methods("DELETE")
+	// Delete a user from the framework
+	api.HandleFunc("/user/{user:[a-z0-9]+}", routes.DeleteUser).Methods("DELETE")
+	// Get user permissions assigned to yourself
+	api.HandleFunc("/user/me/perm", routes.GetUserPerms).Methods("GET")
+	// Get user permissions assigned to a particular user
+	api.HandleFunc("/user/{user:[a-z0-9]+}/perm", routes.GetUserPerms).Methods("GET")
+	// Update user permissions assigned to a particular user
+	api.HandleFunc("/user/{user:[a-z0-9]+}/perm", routes.UpdateUserPerms).Methods("PUT")
+	// Get server permissions assigned to all relevant servers for yourself
+	api.HandleFunc("/user/me/perm/server", routes.GetServerPerms).Methods("GET")
+	// Get server permissions assigned to all relevant servers for a particular user
+	api.HandleFunc(
+		"/user/{user:[a-z0-9]}/perm/server",
+		routes.GetServerPerms,
+	).Methods("GET")
+	// Get server permissions assigned to yourself for a particular server
+	api.HandleFunc(
+		"/user/me/perm/server/{owner:[a-z0-9]+}/{name:[a-z0-9]+}",
+		routes.GetServerPerms,
+	).Methods("GET")
+	// Get server permissions assigned to a user for a particular server
+	api.HandleFunc(
+		"/user/{user:[a-z0-9]}/perm/server/{owner:[a-z0-9]+}/{name:[a-z0-9]+}",
+		routes.GetServerPerms,
+	).Methods("GET")
+	// Update server permissions for yourself and a particular server
+	api.HandleFunc(
+		"/user/me/perm/server/{owner:[a-z0-9]+}/{name:[a-z0-9]+}",
+		routes.UpdateServerPerms,
+	).Methods("PUT")
+	// Update server permissions for a particular user and server
+	api.HandleFunc(
+		"/user/{user:[a-z0-9]}/perm/server/{owner:[a-z0-9]+}/{name:[a-z0-9]+}",
+		routes.UpdateServerPerms,
+	).Methods("PUT")
+
+	// Handle API calls for servers
+	// Create a new server
+	api.HandleFunc("/server", routes.CreateServer).Methods("POST")
+	// List all visible servers
+	api.HandleFunc("/server", routes.GetServers).Methods("GET")
+	// View a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}",
+		routes.GetServer,
+	).Methods("GET")
+	// Update a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}",
+		routes.UpdateServer,
+	).Methods("PATCH")
+	// Delete a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}",
+		routes.DeleteServer,
+	).Methods("DELETE")
+	// Start a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/start",
+		routes.StartServer,
+	).Methods("POST")
+	// Stop a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/stop",
+		routes.StopServer,
+	).Methods("POST")
+	// Restart a server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/restart",
+		routes.RestartServer,
+	).Methods("POST")
+
+	// Get server permissions assigned to all relevant users and servers
+	api.HandleFunc("/server/perm", routes.GetServerPerms).Methods("GET")
+	// Get server permissions assigned to all relevant users for a particular server
+	api.HandleFunc("/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/perm",
+		routes.GetServerPerms).Methods("GET")
+	// Get server permissions assigned to yourself for a particular server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/perm/me",
+		routes.GetServerPerms,
+	).Methods("GET")
+	// Get server permissions assigned to a particular user for a particular server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/perm/{user:[a-z0-9]+}",
+		routes.GetServerPerms,
+	).Methods("GET")
+	// Update permissions assigned to a particular user for a particular server
+	api.HandleFunc(
+		"/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/perm/{user:[a-z0-9]+}",
+		routes.UpdateServerPerms,
+	).Methods("PUT")
+
+	// Handle websocket connections for a server console
+	api.HandleFunc("/server/{owner:[a-z0-9]+}/{name:[a-z0-9-]+}/console", routes.WsServerHandler)
+
+	// Create or Update an integration with Discord
+	api.HandleFunc(
+		"/server/{user:[a-z0-9]+}/{name:[a-z0-9-]+}/discord",
+		routes.MakeIntegration,
+	).Methods("PUT")
+	// Delete an integration with Discord
+	api.HandleFunc(
+		"/server/{user:[a-z0-9]+}/{name:[a-z0-9-]+}/discord",
+		routes.DeleteIntegration,
+	).Methods("DELETE")
+	// View an integration with Discord
+	api.HandleFunc(
+		"/server/{user:[a-z0-9]+}/{name:[a-z0-9-]+}/discord",
+		routes.GetIntegration,
+	).Methods("GET")
 
 	// Handle static traffic
 	router.PathPrefix("/").Handler(http.FileServer(HTMLStrippingFileSystem{http.Dir("static")})).Methods("GET")
@@ -143,7 +237,7 @@ func main() {
 	// Start server
 	log.Println("Web server is now listening for connections")
 	if ssl {
-		log.Fatal(srv.ListenAndServeTLS("certs/cert.crt", "certs/key.pem"))
+		log.Fatal(srv.ListenAndServeTLS("certs/cert.pem", "certs/privkey.pem"))
 	} else {
 		log.Fatal(srv.ListenAndServe())
 	}

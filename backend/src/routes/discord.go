@@ -49,12 +49,9 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// See if this server exists
-	serverID := getServer(r.URL.String())
-	var server database.Server
-	err := database.DB.First(&server, serverID).Error
-	if err != nil {
+	server, err := getServer(r, false)
+	if err != nil || server.ID == nil {
 		utils.ErrorJSON(w, http.StatusNotFound, "Server does not exist")
-		return
 	}
 
 	// Get JSON of body of PUT
@@ -92,7 +89,7 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 
 	var integration database.DiscordIntegration
 	// Try to see if integration exists
-	database.DB.Where("server_id = ?", serverID).Find(&integration)
+	database.DB.Where("server_id = ?", *server.ID).Find(&integration)
 
 	// If the integration doesn't really exist
 	if integration.ServerID == nil {
@@ -102,7 +99,7 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 			DiscordURL: discord,
 			Username:   &server.Name,
 			Active:     false,
-			Server:     server,
+			Server:     *server,
 		}
 		// Create an integration to start
 		database.DB.Create(&integration)
@@ -127,14 +124,14 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 
 	if integration.Active == false && active == true {
 		// Integration wasn't started before, but should be now, so start it
-		connDetails, _ := utils.AttachServer(serverID, nil)
+		connDetails, _ := utils.AttachServer(*server.ID, nil)
 		database.DB.Table("discord_integrations").Where(
-			"server_id = ?", serverID,
+			"server_id = ?", *server.ID,
 		).Update("active", true)
-		utils.RunDiscordIntegration(connDetails, serverID)
+		utils.RunDiscordIntegration(connDetails, *server.ID)
 	} else if integration.Active == true && active == false {
 		// Integration was started before, but shouldn't be now, so stop it
-		utils.StopDiscordIntegration(serverID)
+		utils.StopDiscordIntegration(*server.ID)
 	}
 
 	// Set the integration to the new active value
@@ -169,10 +166,7 @@ func MakeIntegration(w http.ResponseWriter, r *http.Request) {
 	// Save the integration
 	database.DB.Save(&integration)
 
-	// Write out success
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	http.Error(w, "", http.StatusNoContent)
 }
 
 // DeleteIntegration will delete an integration with a server
@@ -184,15 +178,15 @@ func DeleteIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get server id
-	serverID := getServer(r.URL.String())
+	server, err := getServer(r, false)
+	if err != nil || server.ID == nil {
+		utils.ErrorJSON(w, http.StatusNotFound, "Server does not exist")
+	}
 
 	// Delete the integration
-	database.DB.Where("server_id = ?", serverID).Delete(&database.DiscordIntegration{})
+	database.DB.Where("server_id = ?", *server.ID).Delete(&database.DiscordIntegration{})
 
-	// Write out success
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	http.Error(w, "", http.StatusNoContent)
 }
 
 // GetIntegration will show information about the integration with a server
@@ -203,10 +197,14 @@ func GetIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serverID := getServer(r.URL.String())
+	// Get server id
+	server, err := getServer(r, false)
+	if err != nil || server.ID == nil {
+		utils.ErrorJSON(w, http.StatusNotFound, "Server does not exist")
+	}
 
 	var integration database.DiscordIntegration
-	err := database.DB.Where("server_id = ?", serverID).Find(&integration).Error
+	err = database.DB.Where("server_id = ?", *server.ID).Find(&integration).Error
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusBadRequest, err.Error())
 	}

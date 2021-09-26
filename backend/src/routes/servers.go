@@ -2,12 +2,14 @@ package routes
 
 import (
 	"encoding/json"
+	"errors"
+	"github.com/gorilla/mux"
 	"gorm.io/gorm/clause"
+	"log"
 	"msmf/database"
 	"msmf/games"
 	"msmf/utils"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -52,23 +54,49 @@ func checkPerms(w http.ResponseWriter, r *http.Request, perm string, isServerPer
 	return true
 }
 
-// Gets a server id from the url
-func getServer(url string) (serverID int) {
-	parts := strings.SplitN(url, "/", 6)
-	// This will work on /api/servers/{id}
-	serverID, err := strconv.Atoi(parts[3])
-	if err != nil {
-		// This will work on /api/<something>/servers/{id}
-		serverID, _ = strconv.Atoi(parts[4])
+// getServerURL gets the owner and name from the url
+func getServerURL(r *http.Request) (ownerName, serverName string) {
+	params := mux.Vars(r)
+	return params["owner"], params["name"]
+}
+
+// getServer gets the server object from the owner and servername supplied in the url
+func getServer(r *http.Request, associations bool) (*database.Server, error) {
+	var server database.Server
+	var err error
+
+	params := mux.Vars(r)
+	ownerName, exists := params["owner"]
+	if !exists {
+		return nil, errors.New("cannot find server")
 	}
-	return serverID
+	serverName, exists := params["name"]
+	if !exists {
+		return nil, errors.New("cannot find server")
+	}
+
+	if associations {
+		err = database.DB.Preload(clause.Associations).Joins(
+			"INNER JOIN users u ON u.id = servers.owner_id",
+		).Where(
+			"REPLACE(LOWER(servers.name), ' ', '-') = ? AND u.username = ?", serverName, ownerName,
+		).Find(&server).Error
+	} else {
+		err = database.DB.Joins(
+			"INNER JOIN users u ON u.id = servers.owner_id",
+		).Where(
+			"REPLACE(LOWER(servers.name), ' ', '-') = ? AND u.username = ?", serverName, ownerName,
+		).Find(&server).Error
+	}
+
+	return &server, err
 }
 
 // Helper function to see if a person can view a server before doing other permission checking
 // Note, this function does not tell you whether a server exists or not explicitly, it just implies
 // whether you could see it or not if it existed. You must still do your own manual checks to see
 // if it exists
-func canViewServer(serverID int, token string) (bool, error) {
+func canViewServer(ownerName, serverName, token string) (bool, error) {
 	// See if they are the server owner
 	var count int64
 	// See if this user has any user level permissions to be able to view this server
@@ -95,21 +123,27 @@ func canViewServer(serverID int, token string) (bool, error) {
 	// See if they are an owner
 	ownedServersQuery := database.DB.Select("s.*").Table("servers s").Joins(
 		"INNER JOIN users u ON s.owner_id = u.id",
-	).Where("u.token = ? AND s.id = ?", token, serverID)
+	).Where(
+		"u.token = ? AND u.username = ? AND REPLACE(LOWER(s.name), ' ', '-') = ?",
+		token, ownerName, serverName,
+	)
 
 	// See if they have any related user level perms
-	serverPermsQuery := database.DB.Table("servers s").Joins(
+	serverPermsQuery := database.DB.Select("s.id").Table("servers s").Joins(
 		"INNER JOIN server_perms_per_users sppu ON s.id = sppu.server_id",
 	).Joins(
 		"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
 	).Joins(
 		"INNER JOIN users u ON sppu.user_id = u.id",
+	).Joins(
+		"INNER JOIN users o ON s.owner_id = o.id",
 	).Where(
-		"u.token = ? AND s.id = ?", token, serverID,
+		"u.token = ? AND o.username = ? AND REPLACE(LOWER(s.name), ' ', '-') = ?",
+		token, ownerName, serverName,
 	)
 
 	// Join the two queries
-	err = database.DB.Distinct("sp.*").Table("(?) as sp", serverPermsQuery).Joins(
+	err = database.DB.Distinct("sp.id").Table("(?) as sp", serverPermsQuery).Joins(
 		"FULL OUTER JOIN (?) as o ON sp.id = o.id", ownedServersQuery,
 	).Count(&count).Error
 
@@ -134,18 +168,22 @@ func runServer(w http.ResponseWriter, r *http.Request, action string) {
 	}
 	var err error
 
-	// Get the server id
-	serverID := getServer(r.URL.String())
+	// Get the server
+	server, err := getServer(r, false)
+	if err != nil || server.ID == nil {
+		utils.ErrorJSON(w, http.StatusNotFound, "Not Found")
+	}
+
 	if action == "start" {
-		err = utils.StartServer(serverID, true)
+		err = utils.StartServer(*server.ID, true)
 	} else if action == "stop" {
-		err = utils.StopServer(serverID, true)
+		err = utils.StopServer(*server.ID, true)
 	} else {
 		// Ignore the first since if there was a problem the second would catch it anyways
-		lock := utils.GetLock(serverID)
+		lock := utils.GetLock(*server.ID)
 		lock.Lock()
-		_ = utils.StopServer(serverID, false)
-		err = utils.StartServer(serverID, false)
+		_ = utils.StopServer(*server.ID, false)
+		err = utils.StartServer(*server.ID, false)
 		lock.Unlock()
 	}
 
@@ -156,19 +194,14 @@ func runServer(w http.ResponseWriter, r *http.Request, action string) {
 
 	// Update the running status in the db
 	if action == "stop" {
-		database.DB.Model(&database.Server{}).Where(
-			"servers.id = ?", serverID,
-		).Update("running", false)
+		server.Running = false
+		database.DB.Save(server)
 	} else {
-		database.DB.Model(&database.Server{}).Where(
-			"servers.id = ?", serverID,
-		).Update("running", true)
+		server.Running = true
+		database.DB.Save(server)
 	}
 
-	// Write out response
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	http.Error(w, "", http.StatusNoContent)
 }
 
 func CreateServer(w http.ResponseWriter, r *http.Request) {
@@ -201,22 +234,42 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get name
-	name := body["name"].(string)
-	if len(name) == 0 {
-		utils.ErrorJSON(w, http.StatusBadRequest, "Must supply a server name")
+	var name string
+	switch v := body["name"].(type) {
+	case string:
+		name = v
+		// Can't be empty or invalid pattern
+		if len(name) == 0 || !utils.ServerPattern.MatchString(name) {
+			utils.ErrorJSON(w, http.StatusBadRequest, "Must supply a valid server name")
+			return
+		}
+	default:
+		utils.ErrorJSON(w, http.StatusBadRequest, "Name must valid")
 		return
 	}
 
-	// Get rest of form values
-	gameName := body["game"].(string)
-	versionName := body["version"].(string)
-
-	// See if game exists
+	// Get game name
+	var gameName string
 	var game database.Game
-	err = database.DB.Where("games.name = ?", gameName).First(&game).Error
-	if err != nil {
+	switch v := body["game"].(type) {
+	case string:
+		gameName = v
+		// See if game exists
+		err = database.DB.Where("games.name = ?", gameName).First(&game).Error
+		if err != nil {
+			utils.ErrorJSON(w, http.StatusBadRequest, "Must supply a supported game")
+			return
+		}
+	default:
 		utils.ErrorJSON(w, http.StatusBadRequest, "Must supply a supported game")
 		return
+	}
+
+	// Get version name
+	var versionName string
+	switch v := body["version"].(type) {
+	case string:
+		versionName = v
 	}
 
 	// See if port is already taken
@@ -255,8 +308,9 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 			"versions.tag = ? AND games.id = ?",
 			versionName,
 			game.ID,
-		).First(&version).Error
-		if err != nil {
+		).Find(&version).Error
+
+		if err != nil || version.ID == nil {
 			// Add the version to the db
 			version = database.Version{
 				Tag:  versionName,
@@ -309,10 +363,7 @@ func CreateServer(w http.ResponseWriter, r *http.Request) {
 	// Actually create Minecraft server
 	utils.CreateServer(*server.ID, image, game.IsImage, parameters)
 
-	// Write out response
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	http.Error(w, "", http.StatusNoContent)
 }
 
 func GetServers(w http.ResponseWriter, r *http.Request) {
@@ -360,7 +411,7 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
 
 	// They have perms to view all servers
 	if count > 0 {
-		database.DB.Order(order).Find(&servers)
+		database.DB.Preload(clause.Associations).Order(order).Find(&servers)
 	} else {
 		// Get owned servers
 		ownedServersQuery := database.DB.Select("s.*").Table("servers s").Joins(
@@ -368,7 +419,9 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
 		).Where("u.token = ?", token)
 
 		// Get servers they have perms for
-		serverPermsQuery := database.DB.Table("servers s").Joins(
+		serverPermsQuery := database.DB.Select("s.*").Table(
+			"servers s",
+		).Joins(
 			"INNER JOIN server_perms_per_users sppu ON s.id = sppu.server_id",
 		).Joins(
 			"INNER JOIN server_perms sp ON sppu.server_perm_id = sp.id",
@@ -379,7 +432,9 @@ func GetServers(w http.ResponseWriter, r *http.Request) {
 		)
 
 		// Join the two queries
-		err = database.DB.Distinct("sp.*").Table("(?) as sp", serverPermsQuery).Joins(
+		err = database.DB.Distinct("sp.*").Preload(clause.Associations).Table(
+			"(?) as sp", serverPermsQuery,
+		).Joins(
 			"FULL OUTER JOIN (?) as o ON sp.id = o.id", ownedServersQuery,
 		).Order(order).Find(&servers).Error
 
@@ -399,10 +454,10 @@ func GetServer(w http.ResponseWriter, r *http.Request) {
 	tokenCookie, _ := r.Cookie("token")
 	token := tokenCookie.Value
 	// Get server ID
-	serverID := getServer(r.URL.String())
+	ownerName, serverName := getServerURL(r)
 
 	// If error, there was a database error
-	viewable, err := canViewServer(serverID, token)
+	viewable, err := canViewServer(ownerName, serverName, token)
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
 		return
@@ -414,11 +469,9 @@ func GetServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the server to see if it actually exists
-	var server database.Server
-	database.DB.Preload(clause.Associations).Where("servers.id = ?", serverID).Find(&server)
-	if server.ID == nil {
-		utils.ErrorJSON(w, http.StatusNotFound, "Server does not exist")
+	server, err := getServer(r, true)
+	if err != nil || server.ID == nil {
+		utils.ErrorJSON(w, http.StatusInternalServerError, "Server does not exist")
 		return
 	}
 
@@ -430,11 +483,11 @@ func UpdateServer(w http.ResponseWriter, r *http.Request) {
 	// Get user token
 	tokenCookie, _ := r.Cookie("token")
 	token := tokenCookie.Value
-	// Get server ID
-	serverID := getServer(r.URL.String())
+	// Get server params
+	ownerName, serverName := getServerURL(r)
 
 	// If error, there was a database error
-	viewable, err := canViewServer(serverID, token)
+	viewable, err := canViewServer(ownerName, serverName, token)
 	if err != nil {
 		utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
 		return
@@ -447,10 +500,10 @@ func UpdateServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the server to see if it actually exists
-	var server database.Server
-	database.DB.Preload(clause.Associations).Where("servers.id = ?", serverID).Find(&server)
-	if server.ID == nil {
-		utils.ErrorJSON(w, http.StatusNotFound, "Server does not exist")
+	server, err := getServer(r, true)
+	log.Println(err)
+	if err != nil || server.ID == nil {
+		utils.ErrorJSON(w, http.StatusInternalServerError, "Server does not exist")
 		return
 	}
 
@@ -483,7 +536,7 @@ func UpdateServer(w http.ResponseWriter, r *http.Request) {
 			versionTag = value.(string)
 			// Get the version or add it to the db if it doesn't exist
 			var version database.Version
-			err := database.DB.Where("tag = ?", versionTag).Find(&version).Error
+			err = database.DB.Where("tag = ?", versionTag).Find(&version).Error
 			if err != nil {
 				utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
 			}
@@ -528,13 +581,18 @@ func DeleteServer(w http.ResponseWriter, r *http.Request) {
 	tokenCookie, _ := r.Cookie("token")
 	token := tokenCookie.Value
 	// Get server ID
-	serverID := getServer(r.URL.String())
+	ownerName, serverName := getServerURL(r)
 
 	// See if they are the server owner
 	var count int64
 	database.DB.Joins(
 		"INNER JOIN users ON servers.owner_id = users.id",
-	).Where("users.token = ? AND servers.id = ?", token, serverID).Count(&count)
+	).Where(
+		"users.token = ? AND users.username = ? AND REPLACE(LOWER(servers.name, ' ', '-') = ?",
+		token,
+		ownerName,
+		serverName,
+	).Count(&count)
 	// They are not the owner
 	if count == 0 {
 		// Check perms and bail if the perms aren't good
@@ -544,15 +602,15 @@ func DeleteServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the server
-	utils.DeleteServer(getServer(r.URL.String()))
+	server, err := getServer(r, false)
+	if err == nil && server.ID != nil {
+		utils.DeleteServer(*server.ID)
 
-	// Delete it from the database
-	database.DB.Delete(&database.Server{}, serverID)
+		// Delete it from the database
+		database.DB.Delete(server)
+	}
 
-	// Write out response
-	resp := make(map[string]string)
-	resp["status"] = "Success"
-	utils.WriteJSON(w, http.StatusOK, &resp)
+	http.Error(w, "", http.StatusNoContent)
 }
 
 // StartServer starts the server

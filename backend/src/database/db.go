@@ -108,8 +108,9 @@ func createPerms() {
 			Description: "Enables deletion of all servers regardless of server owner",
 		},
 		{
-			Name:        "manage_user_permission",
-			Description: "Allows management of other user's permissions. You cannot add permissions to others that you do not have already",
+			Name: "manage_user_permission",
+			Description: "Allows management of other user's permissions. " +
+				"You cannot add or remove permissions from others that you do not already have",
 		},
 		{
 			Name:        "manage_server_permission",
@@ -162,6 +163,11 @@ func createPerms() {
 		{
 			Name:        "manage_server_console",
 			Description: "Enables attaching to the server console directly in order to run commands. Note, this will make you a server operator as well on games that have support for that",
+		},
+		{
+			Name: "manage_permissions",
+			Description: "Allows management of other user's permissions. " +
+				"You cannot add or remove permissions from others that you do not already have",
 		},
 	}
 

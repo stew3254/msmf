@@ -23,6 +23,11 @@ and what to expect from it.
     * [Creating Discord Integrations](#creating-discord-integrations)
     * [Viewing Discord Integrations](#viewing-discord-integrations)
     * [Deleting Discord Integrations](#deleting-discord-integrations)
+* [Permission Management](#permission-management)
+    * [Listing User Permissions](#listing-user-permissions)
+    * [Setting User Permissions](#setting-user-permssions)
+    * [Listing Server Permissions](#listing-server-permissions)
+    * [Setting Server Permissions](#setting-server-permissions)
 
 ## About Permissions
 
@@ -326,8 +331,7 @@ This will include websockets and Discord integration.
 ### Creating Servers
 
 To create a server, you must be authenticated and have the valid user level
-permission
-`create_server`.
+permission `create_server`.
 
 #### Format
 
@@ -652,21 +656,133 @@ something. A Go one might be added eventually
 
 ### Creating Discord Integrations
 
-TODO Finish this
+To create a discord integration, first create the integration inside Discord
+itself. Currently, only webhook based integrations are supported. Please refer
+to Discord's official documentation. An example is located at
+<https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks>.
+Once your webhook is set up properly, copy the URL they give you to use in
+creation of the integration.
+
+In order to create the integration, you must have any of the following
+permissions:
+
+* You are owner of the server
+* You have the server level permissions `adminsitrator` or `edit_configuration`
+* You have the user level permissions `adminsitrator` or
+  `manage_server_permission`
 
 #### Format
 
-#### Example
+Submit a PUT request to `/api/discord/server/:server_id` with the following
+parameters:
+
+* `type` - This specifies the type of integration. Currently, only `webhook`
+  is supported
+* `discord_url` - This is the webhook url to send messages to
+
+You may optionally include these other parameters too:
+
+* `name` - This is the name that will be displayed when the message is created
+  in Discord. By default, this is your server's name
+* `avatar_url` - This is a link to the profile picture to be used when posting
+  the message
+* `active` - This is a boolean used to turn on or off the integration. The
+  integration will be turned on by default unless explicitly told otherwise
 
 ### Viewing Discord Integrations
 
+To view a discord integration, you must have any of the following permissions:
+
+* You are owner of the server
+* You have the server level permissions `adminsitrator` or `edit_configuration`
+* You have the user level permissions `adminsitrator` or
+  `manage_server_permission`
+
+#### Format
+
+Submit a GET request to `/api/discord/server/:server_id`. You will receive a
+response with the following parameters:
+
+* `type` - This specifies the type of integration.
+* `discord_url` - This is the webhook url to send messages to.
+* `name` - This is the name that will be displayed when the message is created
+  in Discord.
+* `avatar_url` - This is a link to the profile picture to be used when posting
+  the message.
+* `active` - This is a boolean used to turn on or off the integration.
+
+#### Example
+
+Request
+
+```http request
+GET /api/discord/server/1 HTTP/1.1
+Host: localhost:8080
+Cookie: token=aa97ba3ed6532c2dbbc0ae0736ef6311c69f81d23e6c402eee43066f453e5433
+Accept: application/json
+```
+
+Response
+
+```http request
+HTTP/1.1 200 OK
+Content-Length: 210
+Content-Type: application/json
+Date: Mon, 02 Aug 2021 19:01:02 GMT
+
+{
+  "type": "webhook",
+  "discord_url": "https://discord.com/api/webhooks/id/token",
+  "username": "Vanilla",
+  "avatar_url": null,
+  "active": false
+}
+```
+
+### Deleting Discord Integrations
+
+To delete a discord integration, you must have any of the following permissions:
+
+* You are owner of the server
+* You have the server level permissions `adminsitrator` or `edit_configuration`
+* You have the user level permissions `adminsitrator` or
+  `manage_server_permission`
+
+#### Format
+
+Submit a DELETE request to `/api/discord/server/:server_id`.
+
+#### Example
+
+## Permission Management
+
+TODO Finish this
+
+### Listing User Permissions
+
 TODO Finish this
 
 #### Format
 
 #### Example
 
-### Deleting Discord Integrations
+### Setting User Permissions
+
+TODO Finish this
+
+#### Format
+
+#### Example
+
+### Listing Server Permissions
+
+TODO Finish this
+
+#### Format
+
+#### Example
+
+### Setting Server Permissions
 
 TODO Finish this
 

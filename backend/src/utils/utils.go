@@ -2,14 +2,46 @@ package utils
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	"msmf/database"
 )
+
+var UserPattern = regexp.MustCompile("[a-z0-9]+")
+var ServerPattern = regexp.MustCompile("[a-z0-9- ]+")
+
+// RemoveFromStrSlice the element if it exists
+func RemoveFromStrSlice(slice []string, value interface{}) (newSlice []string) {
+	// All places of things to skip
+	var indices []int
+	// Find all locations of it
+	for i, item := range slice {
+		if item == value {
+			indices = append(indices, i)
+		}
+	}
+
+	// Exclude all of them
+	for i := 0; i < len(indices); i += 1 {
+		if i == 0 {
+			// Skip that element
+			newSlice = append(newSlice, slice[:indices[i]]...)
+		} else if i < len(indices) {
+			// Add all elements after that one until the next appendix
+			newSlice = append(newSlice, slice[indices[i-1]+1:indices[i]]...)
+		} else {
+			// Add the rest of the elements in the slice after that one
+			newSlice = append(newSlice, slice[indices[i]+1:]...)
+		}
+	}
+	return newSlice
+}
 
 // ToJSON converts to json and logs errors. Simply here to reduce code duplication
 func ToJSON(v interface{}) []byte {
@@ -36,14 +68,26 @@ func ErrorJSON(w http.ResponseWriter, status int, err string) {
 	_, _ = w.Write(ToJSON(&resp))
 }
 
-// GenerateToken returns a token representing a logged in user
-func GenerateToken() (string, time.Time) {
-	b := make([]byte, 32)
+// GenerateRandom generates a random byte array
+func GenerateRandom(size int) (b []byte) {
+	b = make([]byte, size)
 	_, err := rand.Read(b)
 	if err != nil {
 		log.Println(err)
 	}
+	return
+}
+
+// GenerateToken returns a token representing a logged-in user, and their expiration time
+func GenerateToken() (string, time.Time) {
+	b := GenerateRandom(32)
 	return fmt.Sprintf("%x", b), time.Now().Add(6 * time.Hour)
+}
+
+// GenerateCode returns a url safe referral code
+func GenerateCode() string {
+	b := GenerateRandom(4)
+	return base64.URLEncoding.EncodeToString(b)[:6]
 }
 
 // ValidateToken verifies a token exists in the db and isn't expired

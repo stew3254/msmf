@@ -37,6 +37,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.SetCookie(w, &http.Cookie{
+			Path:     "/",
 			Name:     "token",
 			Value:    user.Token,
 			Expires:  user.TokenExpiration,
@@ -44,44 +45,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 			HttpOnly: true,
 			SameSite: http.SameSiteStrictMode,
 		})
-		http.Redirect(w, r, "/", http.StatusFound)
+		// http.Redirect(w, r, "/", http.StatusFound)
+		http.ServeFile(w, r, "static/index.html")
 		return
 	}
 	http.Error(w, "Forbidden", http.StatusForbidden)
-}
-
-// ChangePassword handles updating a password as long as the user knows their current password
-func ChangePassword(w http.ResponseWriter, r *http.Request) {
-	user := database.User{}
-	// Middleware already checks to see if the user is authenticated
-	tokenCookie, _ := r.Cookie("token")
-	token := tokenCookie.Value
-
-	// Get the valid user
-	database.DB.Where("users.token = ?", token).Find(&user)
-
-	// Get all of the form fields
-	currPass := r.FormValue("current_password")
-	newPass := r.FormValue("new_password")
-
-	// TODO make it so the new password must meet certain requirements to be a good password
-
-	// Check to see if passwords don't match
-	if bcrypt.CompareHashAndPassword(user.Password, []byte(currPass)) != nil {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-
-	// Set the new password
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), bcrypt.DefaultCost)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Update user password and save to database
-	user.Password = hash
-	database.DB.Save(&user)
-
-	http.Redirect(w, r, "/", http.StatusFound)
 }
