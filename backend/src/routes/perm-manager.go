@@ -734,12 +734,6 @@ func UpdateServerPerms(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Delete all server level perms for this user
-			// err = db.Raw(
-			// 	"DELETE FROM server_perms_per_servers where server_id = ? AND user_id = ?",
-			// 	*server.ID,
-			// 	*user.ID,
-			// ).Error
-
 			err = db.Where(
 				"server_id = ? AND user_id = ?",
 				*server.ID,
@@ -751,6 +745,10 @@ func UpdateServerPerms(w http.ResponseWriter, r *http.Request) {
 				utils.ErrorJSON(w, http.StatusInternalServerError, err.Error())
 				return err
 			}
+
+			// GORM transactions are broken, for some reason this is the only way this worked
+			// Don't remove this line or bad things happen. This solution was non-trivial
+			db.SavePoint("test")
 
 			// If they were being given perms at all, add them
 			if len(perms) > 0 {
